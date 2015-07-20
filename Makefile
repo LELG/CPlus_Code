@@ -17,8 +17,8 @@ TARGETDIR := bin
 
 # Flags, libraries, and includes
 CPPFLAGS  := -Wall -std=c++11
-LIB       := -L/usr/local/lib -fopenmp -lgsl -lgslcblas -lm
-INC       := -I/usr/local/include 
+LIB       := -L/usr/local/lib -L/usr/local/Cellar/boost/1.57.0/ -fopenmp -lgsl -lgslcblas -lm -lboost_program_options
+INC       := -I/usr/local/include -I/usr/local/Cellar/boost/1.57.0/include
 
 # Specify object files in OBJECTS; OBJ just adds the directory prefix
 OBJECTS   := V1_Main_Tumour_Evoulution.o
@@ -43,6 +43,10 @@ remake: clean all
 clean:
 	@rm -rf $(BUILDDIR)
 	@rm -rf $(TARGETDIR)
+
+# Testing ...
+test_parser: directories $(BUILDDIR)/params.o
+	$(CXX) $(LIB) -o $(TARGETDIR)/testParser test_parser.cpp $(BUILDDIR)/params.o
 
 # Link
 $(TARGET): $(OBJ)
