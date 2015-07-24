@@ -1,10 +1,12 @@
 #include "params.hpp"
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <stdexcept>
 #include <boost/program_options.hpp>
 
 namespace po = boost::program_options;
+
 
 /*
  * Auxiliary function used to check that 'opt1' and 'opt2' are not specified
@@ -22,13 +24,29 @@ void conflicting_options(const po::variables_map& vm,
 }
 
 /*
+ * Auxiliary function to check that a multitoken option has the correct
+ * number of tokens specified. This function operates on vector<string>.
+ */
+void validate_num_tokens( const po::variables_map& vm, const char* opt, unsigned num_tokens )
+{
+    std::vector<std::string> tokens;
+    if (vm[opt].empty() || (tokens = vm[opt].as<std::vector<std::string> >()).size() != num_tokens) {
+        throw std::logic_error(std::string("Option '") + opt + "' takes exactly " + std::to_string(num_tokens) + " arguments.");
+    }
+}
+
+/*
  * Function to parse our command line options.
  */
 po::variables_map params::parse_options(int argc, char *argv[])
 {
+    std::string config_fpath;
+
     po::options_description general{"General Options"};
     general.add_options()
         ("help,h", "= print this help message and exit")
+        ("config", po::value<std::string>(&config_fpath)->value_name("<path>"),
+            "= path to optional config file")
         ("test_group", po::value<std::string>()->value_name("<name>"),
              "= name for this group of tests")
         ("param_set", po::value<int>()->value_name("<int>"),
@@ -41,81 +59,81 @@ po::variables_map params::parse_options(int argc, char *argv[])
              "= directory for this particular param set")
         ("run_dir", po::value<std::string>()->value_name("<dir>"),
              "= directory for this replicate run")
-        ("r_output",
+        ("r_output", po::bool_switch()->default_value(false),
              "= produce output in R")
-        ("auto_treatment",
+        ("auto_treatment", po::bool_switch()->default_value(false),
              "= automatically introduce treatment at size limit")
-        ("no_plots",
+        ("no_plots", po::bool_switch()->default_value(false),
              "= do not generate plots")
-        ("prune_clones",
+        ("prune_clones", po::bool_switch()->default_value(false),
              "= remove dead clones from population")
-        ("prune_muts",
+        ("prune_muts", po::bool_switch()->default_value(false),
              "= remove dead mutations from population")
-        ("mode", po::value<params::Mode>()->value_name("{in_vivo, cell_line}")->default_value(params::in_vivo),
-            "= simulation mode - defaults to in_vivo")
+        ("mode", po::value<params::Mode>()->value_name("{in_vivo, cell_line}")->default_value(params::in_vivo, "in_vivo"),
+            "= simulation mode")
     ;
 
     po::options_description bounds{"Simulation Bounds"};
     bounds.add_options()
-        ("max_cycles", po::value<int>()->default_value(1e5)->value_name("<int>"),
+        ("max_cycles", po::value<int>()->default_value(1e5, "1e5")->value_name("<int>"),
             "= maximum cycles in simulation")
-        ("max_size_lim", po::value<int>()->default_value(1e5)->value_name("<int>"),
+        ("max_size_lim", po::value<int>()->default_value(1e5, "1e5")->value_name("<int>"),
             "= population size limit (triggers treatment)")
         ("mid_doublings", po::value<int>()->default_value(30)->value_name("<int>"),
-            "= cell_line mode: number of doublings at halfway point")
+            "= in cell_line mode: number of doublings at halfway point")
         ("max_doublings", po::value<int>()->default_value(60)->value_name("<int>"),
-            "= cell_line mode: number of doublings at simulation end")
+            "= in cell_line mode: number of doublings at simulation end")
         ("doublings_per_flask", po::value<int>()->default_value(3)->value_name("<int>"),
             "= cell_line mode: passage flask after this many doublings")
     ;
 
     po::options_description probabilities{ "Probabilities" };
     probabilities.add_options()
-        ("prob_mut_pos", po::value<double>()->default_value(0.01)->value_name("<float>"),
-            "= probability of beneficial mutation")
-        ("prob_mut_neg", po::value<double>()->default_value(0.99)->value_name("<float>"),
-            "= probability of deleterious mutation")
+        ("prob_mut_pos", po::value<double>()->default_value(0.01, "0.01")->value_name("<float>"),
+            "= prob of beneficial mutation")
+        ("prob_mut_neg", po::value<double>()->default_value(0.99, "0.99")->value_name("<float>"),
+            "= prob of deleterious mutation")
         ("prob_inc_mut", po::value<double>()->default_value(0.0)->value_name("<float>"),
-            "= probability of increasing mutation rate")
+            "= prob of increasing mutation rate")
         ("prob_dec_mut", po::value<double>()->default_value(0.0)->value_name("<float>"),
-            "= probability of decreasing mutation rate")
+            "= prob of decreasing mutation rate")
     ;
 
     po::options_description tumour_params{ "Tumour characteristics" };
     tumour_params.add_options()
-        ("pro", po::value<double>()->default_value(0.04)->value_name("<float>"),
+        ("pro", po::value<double>()->default_value(0.04, "0.04")->value_name("<float>"),
             "= initial proliferation rate")
-        ("die", po::value<double>()->default_value(0.03)->value_name("<float>"),
+        ("die", po::value<double>()->default_value(0.03, "0.03")->value_name("<float>"),
             "= initial death rate")
-        ("mut", po::value<double>()->default_value(0.001)->value_name("<float>"),
+        ("mut", po::value<double>()->default_value(0.001, "0.001")->value_name("<float>"),
             "= initial mutation rate")
-        ("init_size", po::value<int>()->default_value(25)->value_name("<int>"),
+        ("init_size", po::value<int>()->value_name("<int>"),
             "= size of initial clone")
-        ("init_diversity", po::value<std::string>()->value_name("<sub file>"),
-            "= specify a heterogeneous initial population, stored in sub file")
+        ("init_diversity", po::value<std::vector<std::string> >()->multitoken()->value_name("<clone file> <mut file>"),
+            "= specify a heterogeneous initial population, stored in clone and mutation files")
     ;
 
     po::options_description treatmt_params{ "Treatment parameters" };
     treatmt_params.add_options()
         ("treatment_type", po::value<params::TreatmentType>()
                            ->value_name("{single_dose, metronomic, adaptive, none}")
-                           ->default_value(params::single_dose),
-            "= treatment type - defaults to single_dose")
+                           ->default_value(params::single_dose, "single_dose"),
+            "= treatment type")
         ("decay_type", po::value<params::DecayType>()
                        ->value_name("{constant, linear, exp}")
-                       ->default_value(params::constant),
-            "= treatment decay type - defaults to constant (no decay)")
+                       ->default_value(params::constant, "constant"),
+            "= treatment decay type")
         ("decay_rate", po::value<double>()->default_value(0.0)->value_name("<float>"),
             "= treatment decay rate")
         ("treatment_freq", po::value<int>()->default_value(100)->value_name("<int>"),
             "= treatment frequency")
-        ("adaptive_increment", po::value<double>()->default_value(0.001)->value_name("<float>"),
+        ("adaptive_increment", po::value<double>()->default_value(0.001, "0.001")->value_name("<float>"),
             "= adaptive treatment: size of incremental dosage changes")
-        ("adaptive_threshold", po::value<double>()->default_value(0.025)->value_name("<float>"),
+        ("adaptive_threshold", po::value<double>()->default_value(0.025, "0.025")->value_name("<float>"),
             "= adaptive treatment: change in tumour size that triggers dosage change")
-        ("select_time", po::value<int>()->default_value(400000)->value_name("<int>"),
+        ("select_time", po::value<int>()->default_value(4e5, "4e5")->value_name("<int>"),
             "= time to manually introduce selective pressure")
-        ("select_pressure", po::value<double>()->default_value(0.01)->value_name("<float>"),
+        ("select_pressure", po::value<double>()->default_value(0.01, "0.01")->value_name("<float>"),
             "= initial value of selective pressure")
         ("mutagenic_pressure", po::value<double>()->default_value(0.0)->value_name("<float>"),
             "= initial value of mutagenic pressure")
@@ -123,16 +141,18 @@ po::variables_map params::parse_options(int argc, char *argv[])
 
     po::options_description resist_params{ "Resistance parameters" };
     resist_params.add_options()
-        ("resistance", "= generate pre-existing resistance mutations")
+        ("resistance", po::bool_switch()->default_value(false),
+            "= generate pre-existing resistance mutations")
         ("num_resist_mutns", po::value<int>()->value_name("<int>"),
             "= determine how many resistance mutations to generate")
-        ("resist_strength", po::value<double>()->default_value(1.0)->value_name("<float>"),
+        ("resist_strength", po::value<double>()->default_value(1.0, "1.0")->value_name("<float>"),
             "= strength of resistance mutations (between 0 and 1)")
     ;
 
     po::options_description saving_loading{ "Saving/Loading" };
     saving_loading.add_options()
-        ("save_snapshot", "= save a population snapshot when population reaches size limit")
+        ("save_snapshot", po::bool_switch()->default_value(false),
+            "= save a population snapshot when population reaches size limit")
         ("load_snapshot", po::value<std::string>()->value_name("<path to archive>"),
             "= load a snapshot from the specified archive")
     ;
@@ -145,22 +165,68 @@ po::variables_map params::parse_options(int argc, char *argv[])
 
     try
     {
+        // store options to variables map
         po::store(po::command_line_parser(argc, argv).options(all).run(), vm);
+
         // Display help text when requested
         if (vm.count("help"))
         {
             std::cout << all << std::endl;
             std::exit(EXIT_SUCCESS);
         }
+
+        // cmd line notification - may raise some errors
+        po::notify(vm);
+
+        // check for config file
+        if (vm.count("config"))
+        {
+            std::ifstream ifs(config_fpath.c_str());
+            if (!ifs) {
+                throw std::runtime_error("Couldn't open config file: " + config_fpath);
+            } else {
+                po::store(po::parse_config_file(ifs, all), vm);
+                po::notify(vm);
+            }
+        }
+
+        // validate options
         conflicting_options(vm, "init_size", "init_diversity");
         conflicting_options(vm, "save_snapshot", "load_snapshot");
-        po::notify(vm);
+        if (vm.count("init_diversity"))
+        {
+            validate_num_tokens(vm, "init_diversity", 2);
+        }
     }
     catch (std::exception &e)
     {
-        std::cout << "\nError: " << e.what() << std::endl;
-        std::cout << "Run with --help for usage details" << std::endl;
+        std::cerr << "\nError: " << e.what() << std::endl;
+        std::cout << "See --help for usage details" << std::endl;
         std::exit(EXIT_FAILURE);
+    }
+
+    for (const auto& it : vm) {
+        std::cout << it.first.c_str() << " = ";
+        auto& value = it.second.value();
+        if (auto v = boost::any_cast<int>(&value))
+            std::cout << *v;
+        else if (auto v = boost::any_cast<double>(&value))
+            std::cout << *v;
+        else if (auto v = boost::any_cast<std::string>(&value))
+            std::cout << *v;
+        else if (auto v = boost::any_cast<bool>(&value))
+            std::cout << std::boolalpha << *v;
+        else if (auto v = boost::any_cast<params::Mode>(&value))
+            std::cout << *v;
+        else if (auto v = boost::any_cast<params::DecayType>(&value))
+            std::cout << *v;
+        else if (auto v = boost::any_cast<params::TreatmentType>(&value))
+            std::cout << *v;
+        else if (auto v = boost::any_cast<std::vector<std::string> >(&value))
+            std::cout << *v;
+        else
+            std::cout << "error";
+        std::cout << std::endl;
     }
 
     return vm;
@@ -178,6 +244,16 @@ std::istream& params::operator>>(std::istream& in, params::Mode& mode)
         throw po::invalid_option_value(token);
     }
     return in;
+}
+
+std::ostream& params::operator<<(std::ostream& out, const params::Mode& mode)
+{
+    if (mode == params::in_vivo) {
+        out << "in_vivo";
+    } else if (mode == params::cell_line) {
+        out << "cell_line";
+    }
+    return out;
 }
 
 std::istream& params::operator>>(std::istream& in, params::TreatmentType& treatmt_type)
@@ -198,6 +274,20 @@ std::istream& params::operator>>(std::istream& in, params::TreatmentType& treatm
     return in;
 }
 
+std::ostream& params::operator<<(std::ostream& out, const params::TreatmentType& treatmt_type)
+{
+    if (treatmt_type == params::single_dose) {
+        out << "single_dose";
+    } else if (treatmt_type == params::metronomic) {
+        out << "metronomic";
+    } else if (treatmt_type == params::adaptive) {
+        out << "adaptive";
+    } else if (treatmt_type == params::none) {
+        out << "none";
+    }
+    return out;
+}
+
 std::istream& params::operator>>(std::istream& in, params::DecayType& decay)
 {
     std::string token;
@@ -212,4 +302,24 @@ std::istream& params::operator>>(std::istream& in, params::DecayType& decay)
         throw po::invalid_option_value(token);
     }
     return in;
+}
+
+std::ostream& params::operator<<(std::ostream& out, const params::DecayType& decay)
+{
+    if (decay == params::constant) {
+        out << "constant";
+    } else if (decay == params::linear) {
+        out << "linear";
+    } else if (decay == params::exp) {
+        out << "exp";
+    }
+    return out;
+}
+
+// A helper function for printing out a vector
+template<class T>
+std::ostream& params::operator<<(std::ostream& os, const std::vector<T>& v)
+{
+    copy(v.begin(), v.end(), std::ostream_iterator<T>(os, " "));
+    return os;
 }
