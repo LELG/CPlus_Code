@@ -1,11 +1,11 @@
-#ifndef PARAMS
-#define PARAMS
+#ifndef PARSER
+#define PARSER
 
 #include <boost/program_options.hpp>
 
 namespace po = boost::program_options;
 
-namespace params {
+namespace parser {
     po::variables_map parse_options(int argc, char *argv[]);
 
     enum Mode {in_vivo, cell_line};

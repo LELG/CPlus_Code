@@ -1,4 +1,4 @@
-#include "params.hpp"
+#include "parser.hpp"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -38,7 +38,7 @@ void validate_num_tokens( const po::variables_map& vm, const char* opt, unsigned
 /*
  * Function to parse our command line options.
  */
-po::variables_map params::parse_options(int argc, char *argv[])
+po::variables_map parser::parse_options(int argc, char *argv[])
 {
     std::string config_fpath;
 
@@ -69,7 +69,7 @@ po::variables_map params::parse_options(int argc, char *argv[])
              "= remove dead clones from population")
         ("prune_muts", po::bool_switch()->default_value(false),
              "= remove dead mutations from population")
-        ("mode", po::value<params::Mode>()->value_name("{in_vivo, cell_line}")->default_value(params::in_vivo, "in_vivo"),
+        ("mode", po::value<parser::Mode>()->value_name("{in_vivo, cell_line}")->default_value(parser::in_vivo, "in_vivo"),
             "= simulation mode")
     ;
 
@@ -115,13 +115,13 @@ po::variables_map params::parse_options(int argc, char *argv[])
 
     po::options_description treatmt_params{ "Treatment parameters" };
     treatmt_params.add_options()
-        ("treatment_type", po::value<params::TreatmentType>()
+        ("treatment_type", po::value<parser::TreatmentType>()
                            ->value_name("{single_dose, metronomic, adaptive, none}")
-                           ->default_value(params::single_dose, "single_dose"),
+                           ->default_value(parser::single_dose, "single_dose"),
             "= treatment type")
-        ("decay_type", po::value<params::DecayType>()
+        ("decay_type", po::value<parser::DecayType>()
                        ->value_name("{constant, linear, exp}")
-                       ->default_value(params::constant, "constant"),
+                       ->default_value(parser::constant, "constant"),
             "= treatment decay type")
         ("decay_rate", po::value<double>()->default_value(0.0)->value_name("<float>"),
             "= treatment decay rate")
@@ -216,11 +216,11 @@ po::variables_map params::parse_options(int argc, char *argv[])
             std::cout << *v;
         else if (auto v = boost::any_cast<bool>(&value))
             std::cout << std::boolalpha << *v;
-        else if (auto v = boost::any_cast<params::Mode>(&value))
+        else if (auto v = boost::any_cast<parser::Mode>(&value))
             std::cout << *v;
-        else if (auto v = boost::any_cast<params::DecayType>(&value))
+        else if (auto v = boost::any_cast<parser::DecayType>(&value))
             std::cout << *v;
-        else if (auto v = boost::any_cast<params::TreatmentType>(&value))
+        else if (auto v = boost::any_cast<parser::TreatmentType>(&value))
             std::cout << *v;
         else if (auto v = boost::any_cast<std::vector<std::string> >(&value))
             std::cout << *v;
@@ -232,85 +232,85 @@ po::variables_map params::parse_options(int argc, char *argv[])
     return vm;
 }
 
-std::istream& params::operator>>(std::istream& in, params::Mode& mode)
+std::istream& parser::operator>>(std::istream& in, parser::Mode& mode)
 {
     std::string token;
     in >> token;
     if (token == "in_vivo") {
-        mode = params::in_vivo;
+        mode = parser::in_vivo;
     } else if (token == "cell_line") {
-        mode = params::cell_line;
+        mode = parser::cell_line;
     } else {
         throw po::invalid_option_value(token);
     }
     return in;
 }
 
-std::ostream& params::operator<<(std::ostream& out, const params::Mode& mode)
+std::ostream& parser::operator<<(std::ostream& out, const parser::Mode& mode)
 {
-    if (mode == params::in_vivo) {
+    if (mode == parser::in_vivo) {
         out << "in_vivo";
-    } else if (mode == params::cell_line) {
+    } else if (mode == parser::cell_line) {
         out << "cell_line";
     }
     return out;
 }
 
-std::istream& params::operator>>(std::istream& in, params::TreatmentType& treatmt_type)
+std::istream& parser::operator>>(std::istream& in, parser::TreatmentType& treatmt_type)
 {
     std::string token;
     in >> token;
     if (token == "single_dose") {
-        treatmt_type = params::single_dose;
+        treatmt_type = parser::single_dose;
     } else if (token == "metronomic") {
-        treatmt_type = params::metronomic;
+        treatmt_type = parser::metronomic;
     } else if (token == "adaptive") {
-        treatmt_type = params::adaptive;
+        treatmt_type = parser::adaptive;
     } else if (token == "none") {
-        treatmt_type = params::none;
+        treatmt_type = parser::none;
     } else {
         throw po::invalid_option_value(token);
     }
     return in;
 }
 
-std::ostream& params::operator<<(std::ostream& out, const params::TreatmentType& treatmt_type)
+std::ostream& parser::operator<<(std::ostream& out, const parser::TreatmentType& treatmt_type)
 {
-    if (treatmt_type == params::single_dose) {
+    if (treatmt_type == parser::single_dose) {
         out << "single_dose";
-    } else if (treatmt_type == params::metronomic) {
+    } else if (treatmt_type == parser::metronomic) {
         out << "metronomic";
-    } else if (treatmt_type == params::adaptive) {
+    } else if (treatmt_type == parser::adaptive) {
         out << "adaptive";
-    } else if (treatmt_type == params::none) {
+    } else if (treatmt_type == parser::none) {
         out << "none";
     }
     return out;
 }
 
-std::istream& params::operator>>(std::istream& in, params::DecayType& decay)
+std::istream& parser::operator>>(std::istream& in, parser::DecayType& decay)
 {
     std::string token;
     in >> token;
     if (token == "constant") {
-        decay = params::constant;
+        decay = parser::constant;
     } else if (token == "linear") {
-        decay = params::linear;
+        decay = parser::linear;
     } else if (token == "exp") {
-        decay = params::exp;
+        decay = parser::exp;
     } else {
         throw po::invalid_option_value(token);
     }
     return in;
 }
 
-std::ostream& params::operator<<(std::ostream& out, const params::DecayType& decay)
+std::ostream& parser::operator<<(std::ostream& out, const parser::DecayType& decay)
 {
-    if (decay == params::constant) {
+    if (decay == parser::constant) {
         out << "constant";
-    } else if (decay == params::linear) {
+    } else if (decay == parser::linear) {
         out << "linear";
-    } else if (decay == params::exp) {
+    } else if (decay == parser::exp) {
         out << "exp";
     }
     return out;
@@ -318,7 +318,7 @@ std::ostream& params::operator<<(std::ostream& out, const params::DecayType& dec
 
 // A helper function for printing out a vector
 template<class T>
-std::ostream& params::operator<<(std::ostream& os, const std::vector<T>& v)
+std::ostream& parser::operator<<(std::ostream& os, const std::vector<T>& v)
 {
     copy(v.begin(), v.end(), std::ostream_iterator<T>(os, " "));
     return os;
