@@ -15,6 +15,8 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
 
+set(LOCAL_INCLUDES ${PROJECT_SOURCE_DIR}/include)
+
 # Search for required libraries - Boost, OpenMP, GSL
 
 find_package(Boost COMPONENTS program_options REQUIRED)
@@ -26,14 +28,15 @@ find_package(OpenMP REQUIRED)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 find_package(GSL REQUIRED)
-message(status "** GSL Include: ${GSL_INCLUDE_DIRS}")
+message(status "** GSL Include: ${GSL_INCLUDE_DIR}")
 message(status "** GSL Libraries: ${GSL_LIBRARIES}")
 
-add_executable (testParser test_parser.cpp params.cpp)
-add_executable (tumourSim V1_Main_Tumour_Evoulution.cpp params.cpp)
+add_executable (testParser test/test_parser.cpp parser.cpp)
+add_executable (tumourSim V1_Main_Tumour_Evoulution.cpp parser.cpp)
 
 include_directories("${Boost_INCLUDE_DIR}")
-include_directories("${GSL_INCLUDE_DIRS}")
+include_directories("${GSL_INCLUDE_DIR}")
+include_directories("${LOCAL_INCLUDES}")
 link_directories("${Boost_LIBRARY_DIRS}")
 
 set_target_properties(tumourSim PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
@@ -41,5 +44,3 @@ set_target_properties(tumourSim PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
 target_link_libraries(testParser ${Boost_LIBRARIES})
 target_link_libraries(tumourSim ${Boost_LIBRARIES})
 target_link_libraries(tumourSim ${GSL_LIBRARIES})
-
-install (TARGETS testParser DESTINATION bin)
