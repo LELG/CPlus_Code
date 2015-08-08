@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# RUN GROUP OF SIMULATIONS
-# where parameter sets are specified line-by-line in a space-separated config file
+# Generate script for running batch (e.g. PBS) jobs
+# and create some directories for storing results
 
 # check for correct invocation
 E_WRONG_ARGS=85
@@ -15,7 +15,9 @@ function usage-exit () {
 
 # process flag options using getopts
 
-OPTIND=1         # Reset in case getopts has been used previously in the shell.
+OPTIND=1    # Reset in case getopts has been used previously in the shell.
+
+# initialise batch variables
 walltime="1:00:00"
 queue=""
 mailopt=""
@@ -40,23 +42,11 @@ shift $((OPTIND-1))
 
 [ "$1" = "--" ] && shift
 
-# now check for required positional arguments
+# now check for positional arguments
 
 num_expected_args=3
 if [ $# -ne $num_expected_args ]; then
   usage-exit
-fi
-
-if $(echo $2 | grep -E -q '^[0-9]+$'); then
-  runs_per_param_set=$2
-else
-  usage-exit "runs_per_param_set - numeric arg required, got "$2" instead"
-fi
-
-if [ ! -f $3 ]; then
-  usage-exit "Could not find config file: "$3
-else
-  tg_config_file=$3
 fi
 
 # check that supplied testname will make a valid directory name
@@ -67,41 +57,54 @@ else
   test_group=$1
 fi
 
+# check that runs_per_ps is numeric
+if $(echo $2 | grep -E -q '^[0-9]+$'); then
+  runs_per_ps=$2
+else
+  usage-exit "runs_per_ps - numeric arg required, got "$2" instead"
+fi
+
+if [ ! -f $3 ]; then
+  usage-exit "Could not find config file: "$3
+else
+  tg_config_file=$3
+fi
+
+
 # make directory for today's date, unless it already exists
 today=$(date +'%Y-%m-%d')
 today_dir="results/$today"
 if [ ! -d "$today_dir" ]
 then
-  echo "================================================================================"
-  printf "Creating results directory for "$today" ...\r"
+  printf "=== Creating results directory for "$today" ...\r"
   mkdir -p "$today_dir"
-  printf "Creating results directory for "$today" ... done.\n"
+  printf "=== Creating results directory for "$today" ... done.\n"
 fi
 
 # make main directory for this test group
 test_group_dir="$today_dir/$test_group"
-echo "================================================================================"
 if [ ! -d $test_group_dir ]
 then
-  printf "Creating main directory for test group "$test_group" ...\r"
+  printf "=== Creating test group directory: "$test_group_dir" ...\r"
   mkdir -p $test_group_dir
-  printf "Creating main directory for test group "$test_group" ... done.\n"
+  printf "=== Creating test group directory: "$test_group_dir" ... done.\n"
 else
-  echo "Warning: results for test group "$test_group" already exist"
+  echo "    WARNING: results for test group "$test_group" already exist"
   i=1
   while [ -d "$test_group_dir($i)" ] ; do
     let i++
   done
   test_group_dir="$test_group_dir($i)"
-  printf "Creating main directory for test group "$test_group" ...\r"
+  test_group="$test_group($i)"
+  printf "=== Creating test group directory: "$test_group_dir" ...\r"
   mkdir -p $test_group_dir
-  printf "Creating main directory for test group "$test_group" ... done.\n"
+  printf "=== Creating test group directory: "$test_group_dir" ... done.\n"
 fi
 
 if [ ! -f $test_group_dir/$tg_config_file ]; then
-  printf "Copying config file to test group directory ...\r"
+  printf "=== Copying config file to $test_group_dir ...\r"
   cp $tg_config_file $test_group_dir
-  printf "Copying config file to test group directory ... done.\n"
+  printf "=== Copying config file to $test_group_dir ... done.\n"
 fi
 
 # strip comments from config file
@@ -124,8 +127,7 @@ param_set_padding=${#num_param_sets}
 
 # start constructing PBS script
 pbs_script="PBS-$test_group.sh"
-echo "================================================================================"
-echo "Creating PBS script for test group $test_group ..."
+echo "=== Creating PBS script for \`$test_group\` ..."
 
 # first, send necessary variables
 cat >> $pbs_script << _endmsg
@@ -139,15 +141,15 @@ $queue
 $mailopt
 $mailadd
 
-this_script=$pbs_script
-tg_config_file=$tg_config_file
+this_script="$pbs_script"
+tg_config_file="$tg_config_file"
 param_sets="$param_sets"
 param_names=(${param_names[@]})
 num_params=${#param_names[@]}
 num_param_sets=$num_param_sets
 param_set_padding=${#num_param_sets}
-runs_per_param_set=$runs_per_param_set
-test_group=$test_group
+runs_per_ps=$runs_per_ps
+test_group="$test_group"
 test_group_dir="$test_group_dir"
 _endmsg
 
@@ -171,18 +173,16 @@ unset IFS
 param_set_dir=$(printf "%s/%0*d" $test_group_dir $param_set_padding $param_set)
 
 if [ ! -d $param_set_dir ]; then
-echo "================================================================================"
-  printf "Creating param set directory: "$param_set_dir" ...\r"
+  printf "=== Creating param set directory: "$param_set_dir" ...\r"
   mkdir -p $param_set_dir
-  printf "Creating param set directory: "$param_set_dir" ... done.\n"
+  printf "=== Creating param set directory: "$param_set_dir" ... done.\n"
 fi
 
 # each parameter set will get stored to its own file
 # (in a boost::program_options compatible format)
 param_set_config_file="$param_set_dir/$test_group-$param_set.cpp.conf"
 
-echo "================================================================================"
-printf "Writing parameter set to config file ...\r"
+printf "=== Writing parameter set to config file ...\r"
 
 i=0
 while [ $i -lt $num_params ]; do
@@ -228,12 +228,12 @@ param_set = $param_set
 test_group_dir = '$test_group_dir'
 param_set_dir = '$param_set_dir'" >> $param_set_config_file
 
-printf "Writing parameter set to config file ... done.\n"
+printf "=== Writing parameter set to config file ... done.\n"
 
-./run_param_set_experiment.sh $param_set_config_file $test_group $param_set $param_set_dir $runs_per_param_set
+./run_param_set.sh $param_set_config_file $test_group $param_set $param_set_dir $runs_per_ps
 
 # when run, this script copies itself to the test group directory
 cp "$this_script" "$test_group_dir"
 _endmsg
 
-echo "Script created as $pbs_script."
+echo "=== PBS script created as $pbs_script."

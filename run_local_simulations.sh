@@ -1,11 +1,10 @@
 #!/bin/bash
 
-# RUN GROUP OF SIMULATIONS
-# where parameter sets are specified line-by-line in a space-separated config file
+# Run a simulation test group on a local computer
 
 # check for correct invocation
 E_WRONG_ARGS=85
-script_parameters="test_group_name runs_per_param_set config_file"
+script_parameters="test_group_name runs_per_ps config_file"
 
 function usage-exit () {
   echo "Usage: ./`basename $0` $script_parameters"
@@ -18,16 +17,6 @@ if [ $# -ne $num_expected_args ]; then
   usage-exit "Incorrect number of parameters provided"
 fi
 
-if $(echo $2 | grep -E -q '^[0-9]+$'); then
-  runs_per_param_set=$2
-else
-  usage-exit "Numeric arg required, got "$2" instead"
-fi
-
-if [ ! -f $3 ]; then
-  usage-exit "Could not read config file: "$3
-fi
-
 # check that supplied testname will make a valid directory name
 # i.e., that it does not contain slash or backslash
 if [[ "$1" == *\/* ]] || [[ "$1" == *\\* ]]; then
@@ -36,45 +25,54 @@ else
   test_group=$1
 fi
 
+if $(echo $2 | grep -E -q '^[0-9]+$'); then
+  runs_per_ps=$2
+else
+  usage-exit "runs_per_ps - numeric arg required, got "$2" instead"
+fi
+
+if [ ! -f $3 ]; then
+  usage-exit "could not read config file: "$3
+fi
+
 # make directory for today's date, unless it already exists
 today=$(date +'%Y-%m-%d')
 today_dir="results/$today"
 
 if [ ! -d "$today_dir" ]
 then
-  echo "================================================================================"
-  printf "Creating results directory for "$today" ...\r"
+  printf "=== Creating results directory for "$today" ...\r"
   mkdir -p "$today_dir"
-  printf "Creating results directory for "$today" ... done.\n"
+  printf "=== Creating results directory for "$today" ... done.\n"
 fi
 
 # make main directory for this test group
 test_group_dir="$today_dir/$test_group"
-  echo "================================================================================"
 if [ ! -d $test_group_dir ]
 then
-  printf "Creating main directory for test group "$test_group" ...\r"
+  printf "=== Creating test group directory: "$test_group_dir" ...\r"
   mkdir -p $test_group_dir
-  printf "Creating main directory for test group "$test_group" ... done.\n"
+  printf "=== Creating test group directory: "$test_group_dir" ... done.\n"
 else
-  echo "Warning: results for test group "$test_group" already exist"
+  echo "    WARNING: results for test group "$test_group" already exist"
   i=1
   while [ -d "$test_group_dir($i)" ] ; do
     let i++
   done
   test_group_dir="$test_group_dir($i)"
-  printf "Creating main directory for test group "$test_group" ...\r"
+  test_group="$test_group($i)"
+  printf "=== Creating test group directory: "$test_group_dir" ...\r"
   mkdir -p $test_group_dir
-  printf "Creating main directory for test group "$test_group" ... done.\n"
+  printf "=== Creating test group directory: "$test_group_dir" ... done.\n"
 fi
 
 touch $test_group_dir/"middropdata.csv"
 touch $test_group_dir/"enddropdata.csv"
 
 if [ ! -f $test_group_dir/$3 ]; then
-  printf "Copying config file to test group directory ...\r"
+  printf "=== Copying config file to $test_group_dir ...\r"
   cp $3 $test_group_dir
-  printf "Copying config file to test group directory ... done.\n"
+  printf "=== Copying config file to $test_group_dir ... done.\n"
 fi
 
 # strip comments from config file
@@ -102,10 +100,9 @@ echo "$file_no_comments" | sed 1d | while read -r line; do
   param_set_dir=$(printf "%s/%0*d" $test_group_dir $param_set_padding $param_set)
 
   if [ ! -d $param_set_dir ]; then
-  echo "================================================================================"
-    printf "Creating param set directory: "$param_set_dir" ...\r"
+    printf "=== Creating param set directory: "$param_set_dir" ...\r"
     mkdir -p $param_set_dir
-    printf "Creating param set directory: "$param_set_dir" ... done.\n"
+    printf "=== Creating param set directory: "$param_set_dir" ... done.\n"
   fi
 
   # each parameter set will get stored to its own file
@@ -117,8 +114,7 @@ echo "$file_no_comments" | sed 1d | while read -r line; do
   vals=($(echo "$line"))
   unset IFS
 
-  echo "================================================================================"
-  printf "Writing parameter set to config file ...\r"
+  printf "=== Writing parameter set to config file ...\r"
 
   # the following code generates a configuration file that can be passed
   # directly into an argparse.ArgumentParser object
@@ -166,9 +162,9 @@ param_set = $param_set
 test_group_dir = $test_group_dir
 param_set_dir = $param_set_dir" >> $param_set_config_file
 
-  printf "Writing parameter set to config file ... done.\n"
+  printf "=== Writing parameter set to config file ... done.\n"
 
-  ./run_param_set_experiment.sh $param_set_config_file $test_group $param_set $param_set_dir $runs_per_param_set
+  ./run_param_set.sh $param_set_config_file $test_group $param_set $param_set_dir $runs_per_ps
 
   let param_set++
 done

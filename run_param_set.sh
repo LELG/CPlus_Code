@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# if we're on the cluster, make sure correct PYTHONPATH is exported
 if [[ ! -z $PBS_SERVER ]] && [[ $PBS_SERVER == "bioinf-head.petermac.org.au" ]]; then
-  export PYTHONPATH=/usr/local/cluster/all_arch/python_libraries/production/lib/python2.7/site-packages
   export TERM=xterm
 fi
 
 # check for correct invocation
 E_WRONG_ARGS=85
-script_parameters="config_file test_group param_set param_set_dir runs_per_param_set"
+script_parameters="config_file test_group param_set param_set_dir runs_per_ps"
 
 function usage-exit () {
   echo "Usage: ./`basename $0` $script_parameters"
@@ -21,21 +19,35 @@ if [ $# -ne $num_expected_args ]; then
   usage-exit "Incorrect number of args provided."
 fi
 
-# read parameters from config file
-echo "================================================================================"
-#printf "Reading parameters from config file ...\r"
-param_set_config_file="$1"
+if [ ! -f $1 ]; then
+  usage-exit "Could not find config file: "$1
+else
+  param_set_config_file=$1
+fi
+
 test_group="$2"
 param_set="$3"
 param_set_dir="$4"
-runs_per_param_set="$5"
+
+# check that runs_per_ps is numeric
+if $(echo $5 | grep -E -q '^[0-9]+$'); then
+  runs_per_ps=$5
+else
+  usage-exit "runs_per_ps - numeric arg required, got "$2" instead"
+fi
+
+# check that simulation executable exists. No point doing any work if not.
+if [ ! -f build/tumourSim ]; then
+  echo "    ERR: tumourSim executable does not exist. Run build.sh and try again."
+  exit 1
+fi
 
 # get appropriate padding for run_dir
-# (this just finds the length of runs_per_param_set as a string)
-runpadding=${#runs_per_param_set}
+# (this just finds the length of runs_per_ps as a string)
+runpadding=${#runs_per_ps}
 
 run_number=1
-while [ $run_number -le $runs_per_param_set ]; do
+while [ $run_number -le $runs_per_ps ]; do
   # note need to 'pad' run directories for proper ordering (001, 002 ... etc)
   run_dir=$(printf "%s/%0*d" $param_set_dir $runpadding $run_number)
 
@@ -45,22 +57,24 @@ while [ $run_number -le $runs_per_param_set ]; do
     mkdir -p "$run_dir/plots"
   fi
 
+  echo
   echo "------------------------------------------"
   echo
   echo "Starting simulation ..."
   echo
   echo "SIMULATION TEST GROUP: "$test_group
-  echo "PARAMETER SET: "$param_set #" of "$num_param_sets
-  echo "RUN: "$run_number" of "$runs_per_param_set
+  echo "PARAMETER SET: "$param_set
+  echo "RUN: "$run_number" of "$runs_per_ps
   echo
   echo "------------------------------------------"
   echo
 
+  # send run details to config file
   echo "run_number = $run_number
 run_dir = $run_dir" >> $param_set_config_file
 
   # run simulation with the full set of parameters
-  build/testParser --config $param_set_config_file
+  build/tumourSim --config $param_set_config_file
 
   run_number=$((run_number+1))
 done
