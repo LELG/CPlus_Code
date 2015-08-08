@@ -4,7 +4,7 @@ project (TestParser)
 
 if(DEFINED ENV{PBS_SERVER})
     message("PBS_SERVER:" $ENV{PBS_SERVER})
-    if (ENV{PBS_SERVER} strequal "bioinf-head.petermac.org.au")
+    if ($ENV{PBS_SERVER} STREQUAL "bioinf-head.petermac.org.au")
 	    message(status "Building on the PMCC Cluster")
 	    message(status "If you have problems, try running cmake with:")
 	    message(status "    CC=gcc CXX=g++ cmake /path/to/source")
