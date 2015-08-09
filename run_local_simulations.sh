@@ -66,9 +66,6 @@ else
   printf "=== Creating test group directory: "$test_group_dir" ... done.\n"
 fi
 
-touch $test_group_dir/"middropdata.csv"
-touch $test_group_dir/"enddropdata.csv"
-
 if [ ! -f $test_group_dir/$3 ]; then
   printf "=== Copying config file to $test_group_dir ...\r"
   cp $3 $test_group_dir
