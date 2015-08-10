@@ -17,7 +17,7 @@ set(LOCAL_INCLUDES ${PROJECT_SOURCE_DIR}/include)
 
 # Search for required libraries - Boost, OpenMP, GSL
 
-find_package(Boost COMPONENTS program_options REQUIRED)
+find_package(Boost COMPONENTS program_options filesystem system REQUIRED)
 message(status "** Boost Include: ${Boost_INCLUDE_DIR}")
 message(status "** Boost Libraries Dir: ${Boost_LIBRARY_DIRS}")
 message(status "** Boost Libraries: ${Boost_LIBRARIES}")
