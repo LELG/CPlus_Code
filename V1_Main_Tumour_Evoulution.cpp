@@ -47,6 +47,13 @@ g++ -c -I/$HOME/include ranlib_prb.cpp
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_rng.h>
 
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
+
+// includes for cmd line parsing
+#include <boost/program_options.hpp>
+#include "parser.hpp"
+namespace po = boost::program_options;
 
 
 /******************************* Constant Varaible Definitions *******************************/
@@ -287,15 +294,15 @@ namespace core {
 						clone(P_Ben) --> if desired
 
 		*****************************************************/
-        Clone(void):
-				P_Beneficial(P_Ben),
-				P_Deleterious(P_Del),
-				P_Increment_Mutation_Rate(P_Inc),
-				P_Decrement_Mutation_Rate(P_Dec),
+        Clone(po::variables_map params):
+				P_Beneficial(params["prob_mut_pos"].as<double>()),
+				P_Deleterious(params["prob_mut_neg"].as<double>()),
+				P_Increment_Mutation_Rate(params["prob_inc_mut"].as<double>()),
+				P_Decrement_Mutation_Rate(params["prob_dec_mut"].as<double>()),
 				Number_Dec_Time(10),
-				Death_Rate(death_rate),
-				Division_Rate(prolif_rate),
-				Proliferation_Rate(prolif_rate),
+				Death_Rate(params["die"].as<double>()),
+				Division_Rate(params["pro"].as<double>()),
+				Proliferation_Rate(params["pro"].as<double>()),
 				Time_to_Division(24),
 				Number_of_Memebers_to_Start_Heterogeneity(27),
 				Number_of_Deleterious_Muatations(0),
@@ -304,7 +311,7 @@ namespace core {
 				Number_of_Driver_Mutations_in_Cell_Division(0),
 				Generation_ID_Counter(0),
 				clone_extinct(0),
-				Mutation_Rate(mut_rate),
+				Mutation_Rate(params["mut"].as<double>()),
 				Mutation_Effect(0.0),
 				Number_of_Mutations(0),
 				Time_of_Recovery(48),
@@ -342,9 +349,9 @@ namespace core {
 		and guaratee a unique scope of the DS.
 
     ********************************************/
-    unique_ptr<Clone> get_Clone_DS()
+    unique_ptr<Clone> get_Clone_DS(po::variables_map params)
     {
-        return unique_ptr<Clone>( new Clone( ) );
+        return unique_ptr<Clone>( new Clone(params) );
     } // end function
 
     /* DS Clonal_Expansion */
@@ -356,6 +363,7 @@ namespace core {
 		//unsigned long long int Quiescent_Size;
 		bool FD;
 		
+        po::variables_map params; // map to store all parameters of simulation
 		double feedback; // This is the output of a proportional control system
 		
 		/**
@@ -372,11 +380,12 @@ namespace core {
 		 vector<unique_ptr<Clone> > *Tumour = new vector<unique_ptr<Clone> >;
 
 		/* CONSTRUCTOR */
-		Clonal_Expansion(void) :
+		Clonal_Expansion(po::variables_map params) :
 				 				Selective_Pressure			( 0.0 ),
 				 				Population_Size 			( 0   ),
 			 					FD(0),
-			 					feedback 					( 0.0 )
+			 					feedback 					( 0.0 ),
+                                params                          ( params )
 			 					{ 									}
 		~Clonal_Expansion() 
 		{}
@@ -389,9 +398,9 @@ namespace core {
 		unique pointer of type Clonal_Expansion. 
 
     ******************************************************/
-	unique_ptr<Clonal_Expansion> get_Clonnal_Expansion_DS()
+	unique_ptr<Clonal_Expansion> get_Clonnal_Expansion_DS(po::variables_map params)
 	{
-		return unique_ptr<Clonal_Expansion>( new Clonal_Expansion() );
+		return unique_ptr<Clonal_Expansion>( new Clonal_Expansion(params) );
 	}// end function
 
 	class Random 
@@ -555,7 +564,7 @@ namespace core {
 		if(CE)// is the pointer NUL?
 		{	
 		
-			CE -> Tumour -> push_back( get_Clone_DS() );// We update the size that way
+			CE -> Tumour -> push_back( get_Clone_DS(CE->params) );// We update the size that way
 			CE -> Tumour -> back() -> Progenitor_Ready_to_Reproduce = false;
 			CE -> Tumour -> back() -> Initiall_Expasion_Period = true;
 			CE -> Tumour -> back() -> Clone_Size = 1;
@@ -783,7 +792,7 @@ namespace core {
 			CE -> Tumour -> at(Generation_ID) -> Generation_ID_Counter++;
 
 
-			CE -> Tumour -> push_back( get_Clone_DS() );// We update the size that way
+			CE -> Tumour -> push_back( get_Clone_DS(CE->params) );// We update the size that way
 			CE -> Tumour -> back() -> Generation_ID = Clone_Name;
 			CE -> Tumour -> back() -> Progenitor_Ready_to_Reproduce = false;
 			CE -> Tumour -> back() -> Initiall_Expasion_Period = true;
@@ -1075,13 +1084,13 @@ namespace core {
 		Ouput: Void
 
     ***********************************************************/
-	void compute_Tumour_Evolution()
+	void compute_Tumour_Evolution(po::variables_map params)
 	{
 		using namespace std;
 
 
 
-		unique_ptr<Clonal_Expansion> const CE = get_Clonnal_Expansion_DS();
+		unique_ptr<Clonal_Expansion> const CE = get_Clonnal_Expansion_DS(params);
 		print_Clonal_Expansion_DS(CE);
 		// move to pass reference
 
@@ -1208,12 +1217,12 @@ namespace core {
 }  // namespace blah
 
 
-int main()
+int main(int argc, char *argv[])
 {
-	
 	using namespace std;
 	using namespace core;
 	
+    po::variables_map params = parser::parse_options(argc, argv);
 
 	long seed;
 
@@ -1224,7 +1233,7 @@ int main()
 
     try
     {
-        compute_Tumour_Evolution();
+        compute_Tumour_Evolution(params);
         
         return EXIT_SUCCESS;
     }
