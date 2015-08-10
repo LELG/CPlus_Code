@@ -19,6 +19,7 @@ namespace parser {
     std::ostream& operator<<(std::ostream& out, const DecayType& decay);
     template<class T>
     std::ostream& operator<<(std::ostream& os, const std::vector<T>& v);
+    std::ostream& operator<<(std::ostream& os, const po::variables_map& vm);
 }
 
 #endif

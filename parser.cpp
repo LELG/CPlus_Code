@@ -35,10 +35,12 @@ void validate_num_tokens( const po::variables_map& vm, const char* opt, unsigned
     }
 }
 
+namespace parser {
+
 /*
  * Function to parse our command line options.
  */
-po::variables_map parser::parse_options(int argc, char *argv[])
+po::variables_map parse_options(int argc, char *argv[])
 {
     std::string config_fpath;
 
@@ -57,7 +59,7 @@ po::variables_map parser::parse_options(int argc, char *argv[])
              "= directory for this test group")
         ("param_set_dir", po::value<std::string>()->value_name("<dir>"),
              "= directory for this particular param set")
-        ("run_dir", po::value<std::string>()->value_name("<dir>"),
+        ("run_dir", po::value<std::string>()->value_name("<dir>")->default_value("temp"),
              "= directory for this replicate run")
         ("r_output", po::bool_switch()->default_value(false),
              "= produce output in R")
@@ -69,7 +71,7 @@ po::variables_map parser::parse_options(int argc, char *argv[])
              "= remove dead clones from population")
         ("prune_muts", po::bool_switch()->default_value(false),
              "= remove dead mutations from population")
-        ("mode", po::value<parser::Mode>()->value_name("{in_vivo, cell_line}")->default_value(parser::in_vivo, "in_vivo"),
+        ("mode", po::value<Mode>()->value_name("{in_vivo, cell_line}")->default_value(in_vivo, "in_vivo"),
             "= simulation mode")
     ;
 
@@ -115,13 +117,13 @@ po::variables_map parser::parse_options(int argc, char *argv[])
 
     po::options_description treatmt_params{ "Treatment parameters" };
     treatmt_params.add_options()
-        ("treatment_type", po::value<parser::TreatmentType>()
+        ("treatment_type", po::value<TreatmentType>()
                            ->value_name("{single_dose, metronomic, adaptive, none}")
-                           ->default_value(parser::single_dose, "single_dose"),
+                           ->default_value(single_dose, "single_dose"),
             "= treatment type")
-        ("decay_type", po::value<parser::DecayType>()
+        ("decay_type", po::value<DecayType>()
                        ->value_name("{constant, linear, exp}")
-                       ->default_value(parser::constant, "constant"),
+                       ->default_value(constant, "constant"),
             "= treatment decay type")
         ("decay_rate", po::value<double>()->default_value(0.0)->value_name("<float>"),
             "= treatment decay rate")
@@ -205,112 +207,88 @@ po::variables_map parser::parse_options(int argc, char *argv[])
         std::exit(EXIT_FAILURE);
     }
 
-    for (const auto& it : vm) {
-        std::cout << it.first.c_str() << " = ";
-        auto& value = it.second.value();
-        if (auto v = boost::any_cast<int>(&value))
-            std::cout << *v;
-        else if (auto v = boost::any_cast<double>(&value))
-            std::cout << *v;
-        else if (auto v = boost::any_cast<std::string>(&value))
-            std::cout << *v;
-        else if (auto v = boost::any_cast<bool>(&value))
-            std::cout << std::boolalpha << *v;
-        else if (auto v = boost::any_cast<parser::Mode>(&value))
-            std::cout << *v;
-        else if (auto v = boost::any_cast<parser::DecayType>(&value))
-            std::cout << *v;
-        else if (auto v = boost::any_cast<parser::TreatmentType>(&value))
-            std::cout << *v;
-        else if (auto v = boost::any_cast<std::vector<std::string> >(&value))
-            std::cout << *v;
-        else
-            std::cout << "error";
-        std::cout << std::endl;
-    }
-
     return vm;
 }
 
-std::istream& parser::operator>>(std::istream& in, parser::Mode& mode)
+std::istream& operator>>(std::istream& in, Mode& mode)
 {
     std::string token;
     in >> token;
     if (token == "in_vivo") {
-        mode = parser::in_vivo;
+        mode = in_vivo;
     } else if (token == "cell_line") {
-        mode = parser::cell_line;
+        mode = cell_line;
     } else {
         throw po::invalid_option_value(token);
     }
     return in;
 }
 
-std::ostream& parser::operator<<(std::ostream& out, const parser::Mode& mode)
+std::ostream& operator<<(std::ostream& out, const Mode& mode)
 {
-    if (mode == parser::in_vivo) {
+    if (mode == in_vivo) {
         out << "in_vivo";
-    } else if (mode == parser::cell_line) {
+    } else if (mode == cell_line) {
         out << "cell_line";
     }
     return out;
 }
 
-std::istream& parser::operator>>(std::istream& in, parser::TreatmentType& treatmt_type)
+std::istream& operator>>(std::istream& in, TreatmentType& treatmt_type)
 {
     std::string token;
     in >> token;
     if (token == "single_dose") {
-        treatmt_type = parser::single_dose;
+        treatmt_type = single_dose;
     } else if (token == "metronomic") {
-        treatmt_type = parser::metronomic;
+        treatmt_type = metronomic;
     } else if (token == "adaptive") {
-        treatmt_type = parser::adaptive;
+        treatmt_type = adaptive;
     } else if (token == "none") {
-        treatmt_type = parser::none;
+        treatmt_type = none;
     } else {
         throw po::invalid_option_value(token);
     }
     return in;
 }
 
-std::ostream& parser::operator<<(std::ostream& out, const parser::TreatmentType& treatmt_type)
+std::ostream& operator<<(std::ostream& out, const TreatmentType& treatmt_type)
 {
-    if (treatmt_type == parser::single_dose) {
+    if (treatmt_type == single_dose) {
         out << "single_dose";
-    } else if (treatmt_type == parser::metronomic) {
+    } else if (treatmt_type == metronomic) {
         out << "metronomic";
-    } else if (treatmt_type == parser::adaptive) {
+    } else if (treatmt_type == adaptive) {
         out << "adaptive";
-    } else if (treatmt_type == parser::none) {
+    } else if (treatmt_type == none) {
         out << "none";
     }
     return out;
 }
 
-std::istream& parser::operator>>(std::istream& in, parser::DecayType& decay)
+std::istream& operator>>(std::istream& in, DecayType& decay)
 {
     std::string token;
     in >> token;
     if (token == "constant") {
-        decay = parser::constant;
+        decay = constant;
     } else if (token == "linear") {
-        decay = parser::linear;
+        decay = linear;
     } else if (token == "exp") {
-        decay = parser::exp;
+        decay = exp;
     } else {
         throw po::invalid_option_value(token);
     }
     return in;
 }
 
-std::ostream& parser::operator<<(std::ostream& out, const parser::DecayType& decay)
+std::ostream& operator<<(std::ostream& out, const DecayType& decay)
 {
-    if (decay == parser::constant) {
+    if (decay == constant) {
         out << "constant";
-    } else if (decay == parser::linear) {
+    } else if (decay == linear) {
         out << "linear";
-    } else if (decay == parser::exp) {
+    } else if (decay == exp) {
         out << "exp";
     }
     return out;
@@ -318,8 +296,39 @@ std::ostream& parser::operator<<(std::ostream& out, const parser::DecayType& dec
 
 // A helper function for printing out a vector
 template<class T>
-std::ostream& parser::operator<<(std::ostream& os, const std::vector<T>& v)
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
 {
     copy(v.begin(), v.end(), std::ostream_iterator<T>(os, " "));
     return os;
 }
+
+std::ostream& operator<<(std::ostream& out, const po::variables_map& vm)
+{
+    for (const auto& it : vm) {
+        out << it.first.c_str() << " = ";
+        auto& value = it.second.value();
+        if (auto v = boost::any_cast<int>(&value))
+            out << *v;
+        else if (auto v = boost::any_cast<double>(&value))
+            out << *v;
+        else if (auto v = boost::any_cast<std::string>(&value))
+            out << *v;
+        else if (auto v = boost::any_cast<bool>(&value))
+            out << std::boolalpha << *v;
+        else if (auto v = boost::any_cast<Mode>(&value))
+            out << *v;
+        else if (auto v = boost::any_cast<DecayType>(&value))
+            out << *v;
+        else if (auto v = boost::any_cast<TreatmentType>(&value))
+            out << *v;
+        else if (auto v = boost::any_cast<std::vector<std::string> >(&value))
+            out << *v;
+        else
+            out << "error";
+        out << std::endl;
+    }
+
+    return out;
+}
+
+} // namespace parser
