@@ -37,5 +37,5 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-echo "=== Simulation built."
+echo "=== Simulation built. See README.md for intructions on running."
 exit 0
