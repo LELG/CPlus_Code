@@ -69,12 +69,8 @@ while [ $run_number -le $runs_per_ps ]; do
   echo "------------------------------------------"
   echo
 
-  # send run details to config file
-  echo "run_number = $run_number
-run_dir = $run_dir" >> $param_set_config_file
-
   # run simulation with the full set of parameters
-  build/tumourSim --config $param_set_config_file
+  build/tumourSim --run_number $run_number --run_dir $run_dir --config $param_set_config_file
 
   run_number=$((run_number+1))
 done
