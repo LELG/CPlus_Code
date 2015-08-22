@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 2.8)
 
-project (TestParser)
+project (TumourSim)
 
 if(DEFINED ENV{PBS_SERVER})
     message("PBS_SERVER:" $ENV{PBS_SERVER})
@@ -29,12 +29,13 @@ find_package(GSL REQUIRED)
 message(status "** GSL Include: ${GSL_INCLUDE_DIR}")
 message(status "** GSL Libraries: ${GSL_LIBRARIES}")
 
-add_executable (testParser test/test_parser.cpp parser.cpp)
+add_executable (testParser test/test_parser.cpp test/test_main.cpp test/catch.hpp parser.cpp)
 add_executable (tumourSim V1_Main_Tumour_Evoulution.cpp parser.cpp)
 
 include_directories("${Boost_INCLUDE_DIR}")
 include_directories("${GSL_INCLUDE_DIR}")
 include_directories("${LOCAL_INCLUDES}")
+include_directories("${PROJECT_SOURCE_DIR}/test")
 link_directories("${Boost_LIBRARY_DIRS}")
 
 set_target_properties(tumourSim PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
