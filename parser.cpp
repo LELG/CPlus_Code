@@ -79,8 +79,10 @@ po::variables_map parse_options(int argc, char *argv[])
     bounds.add_options()
         ("max_cycles", po::value<int>()->default_value(1e5, "1e5")->value_name("<int>"),
             "= maximum cycles in simulation")
-        ("max_size_lim", po::value<int>()->default_value(1e5, "1e5")->value_name("<int>"),
-            "= population size limit (triggers treatment)")
+        ("max_size_lim", po::value<int>()->default_value(1e9, "1e9")->value_name("<int>"),
+            "= population size limit, aka carrying capacity")
+        ("detectable_size", po::value<int>()->default_value(1e9, "1e9")->value_name("<int>"),
+            "= population size at which tumour is detectable (triggers treatment)")
         ("mid_doublings", po::value<int>()->default_value(30)->value_name("<int>"),
             "= in cell_line mode: number of doublings at halfway point")
         ("max_doublings", po::value<int>()->default_value(60)->value_name("<int>"),
@@ -89,7 +91,7 @@ po::variables_map parse_options(int argc, char *argv[])
             "= cell_line mode: passage flask after this many doublings")
     ;
 
-    po::options_description probabilities{ "Probabilities" };
+    po::options_description probabilities{ "Probabilities & Quantiles" };
     probabilities.add_options()
         ("prob_mut_pos", po::value<double>()->default_value(0.01, "0.01")->value_name("<float>"),
             "= prob of beneficial mutation")
@@ -99,6 +101,14 @@ po::variables_map parse_options(int argc, char *argv[])
             "= prob of increasing mutation rate")
         ("prob_dec_mut", po::value<double>()->default_value(0.0)->value_name("<float>"),
             "= prob of decreasing mutation rate")
+        ("driver_quantile", po::value<double>()->value_name("<float>"),
+            "= cutoff quantile for driver mutations")
+        ("killer_quantile", po::value<double>()->value_name("<float>"),
+            "= cutoff quantile for killer mutations")
+        ("beneficial_quantile", po::value<double>()->value_name("<float>"),
+            "= cutoff quantile for beneficial mutations")
+        ("deleterious_quantile", po::value<double>()->value_name("<float>"),
+            "= cutoff quantile for deleterious mutations")
     ;
 
     po::options_description tumour_params{ "Tumour characteristics" };
@@ -109,6 +119,8 @@ po::variables_map parse_options(int argc, char *argv[])
             "= initial death rate")
         ("mut", po::value<double>()->default_value(0.001, "0.001")->value_name("<float>"),
             "= initial mutation rate")
+        ("quiesc", po::value<double>()->default_value(0.005, "0.005")->value_name("<float>"),
+            "= rate of quiescence")
         ("init_size", po::value<int>()->value_name("<int>"),
             "= size of initial clone")
         ("init_diversity", po::value<std::vector<std::string> >()->multitoken()->value_name("<clone file> <mut file>"),
