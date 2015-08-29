@@ -9,15 +9,120 @@ Author: Yoshua Wakeham
         y.wakeham@student.unimelb.edu.au
 """
 
-import sys
+import os, sys
+import csv
 
 
-def generate_summary(results_dir):
+def write_summary_file(results_dir):
     print("generating summary for dir: {}".format(results_dir))
+    try:
+        summ_fields, summary_dicts = get_sim_summaries(results_dir)
+    except ValueError:
+        # there are no simulations to summarise
+        print("summary failed: no simulations to summarise")
+        return
+
+    summ_fpath = get_summary_fpath(results_dir)
+
+    with open(summ_fpath, 'w') as summf:
+        writer = csv.DictWriter(summf, fieldnames=summ_fields)
+        writer.writeheader()
+        for summary in summary_dicts:
+            writer.writerow(summary)
+
+    print("summary file generated")
 
 
 def compress_results(results_dir):
     print("compressing results in dir: {}".format(results_dir))
+
+
+def get_sim_summaries(results_dir):
+    """
+    Return list of summary fields, and a list of simulation summaries (dicts).
+
+    Walk the results directory, generating a summary dictionary
+    for each simulation run. Return a 2-tuple: a list of all fields for the
+    summary CSV file, and a list of all the generated summaries.
+
+    Throws ValueError if no simulation results are found in the results dir.
+    """
+    summary_dicts = []
+
+    param_set_dirs = get_subdirs(results_dir)
+    for ps_dir in param_set_dirs:
+        param_set = get_param_set(ps_dir)
+        run_dirs = get_subdirs(ps_dir)
+        for run_dir in run_dirs:
+            run_summary = get_run_summary(run_dir)
+            run_summary['param_set'] = param_set
+            summary_dicts.append(run_summary)
+
+    try:
+        summ_fields = get_summary_fields(summary_dicts)
+    except ValueError:
+        raise
+
+    return summ_fields, summary_dicts
+
+
+def get_param_set(ps_dir):
+    return os.path.split(ps_dir)[1]
+
+
+def get_run_summary(run_dir):
+    summary = {}
+    summary['run_number'] = get_run_number(run_dir)
+    fields_funcs_map = get_run_fields()
+    for fieldname, get_field_value in fields_funcs_map.items():
+        summary[fieldname] = get_field_value(run_dir)
+    return summary
+
+
+def get_run_fields():
+    name_func_mapping = {'runtime': get_runtime,
+                         'elapsed_cycles': get_elapsed_cycles}
+    return name_func_mapping
+
+
+def get_runtime(run_dir):
+    # TODO implement this properly; currently just a stub
+    # open results file, grab the 'elapsed time' value
+    return ord(run_dir[-1]) * 100
+
+
+def get_elapsed_cycles(run_dir):
+    # TODO implement this properly
+    return ord(run_dir[-1]) * 20000
+
+
+def get_run_number(run_dir):
+    return os.path.split(run_dir)[1]
+
+
+def get_subdirs(dirpath):
+    return [os.path.join(dirpath, name) for name
+            in os.listdir(dirpath)
+            if os.path.isdir(os.path.join(dirpath, name))]
+
+
+def get_summary_fields(summaries):
+    """Get a list of all fields (column names) of summary file."""
+    try:
+        summ_fields = summaries[0].keys()
+    except IndexError:
+        raise ValueError('list of simulation summaries is empty')
+    # make sure that param set and run number are first columns in CSV file
+    summ_fields.remove('param_set')
+    summ_fields.remove('run_number')
+    summ_fields = ['param_set', 'run_number'] + summ_fields
+    return summ_fields
+
+
+def get_summary_fpath(results_dir):
+    simulation_id = os.path.split(results_dir)[1]
+    summary_fname = '{}_summary.csv'.format(simulation_id)
+    return os.path.join(results_dir, summary_fname)
 
 
 if __name__ == "__main__":
@@ -25,6 +130,6 @@ if __name__ == "__main__":
         print("usage: {} <results dir>".format(sys.argv[0]))
         sys.exit(1)
 
-    results_dir = sys.argv[1]
-    generate_summary(results_dir)
+    results_dir = sys.argv[1].rstrip('/')
+    write_summary_file(results_dir)
     compress_results(results_dir)
