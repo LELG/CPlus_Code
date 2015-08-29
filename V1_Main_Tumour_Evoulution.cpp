@@ -1112,8 +1112,8 @@ namespace core {
         if (!fs::is_directory(run_dir)) {
             fs::create_directory(run_dir);
         }
-        fs::path te_path = run_dir / "V1_2_Main_Tumour_Evolution.txt";
-        fs::path stats_path = run_dir / "V2_2_Main_Tumour_Evolution_Stats.txt";
+        fs::path te_path = run_dir / "pop_size.txt";
+        fs::path stats_path = run_dir / "stats.txt";
         fs::path detailed_output_path = run_dir / "detailed_output.txt";
 
   		Tumour_Evolution.open (te_path.string());
