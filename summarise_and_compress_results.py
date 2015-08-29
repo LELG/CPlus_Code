@@ -9,7 +9,7 @@ Author: Yoshua Wakeham
         y.wakeham@student.unimelb.edu.au
 """
 
-import os, sys
+import os, sys, shutil
 import csv
 
 
@@ -34,7 +34,25 @@ def write_summary_file(results_dir):
 
 
 def compress_results(results_dir):
+    """
+    Compress entire results directory into
+    a single archive, and delete the uncompressed results.
+
+    Note that on decompression, duplicate copies of
+    any files in the main results directory (e.g. summary file)
+    will be created.
+    """
     print("compressing results in dir: {}".format(results_dir))
+
+    sim_id = get_simulation_id(results_dir)
+    arch_name = os.path.join(results_dir, sim_id+'_results')
+    shutil.make_archive(arch_name, 'gztar', root_dir=results_dir)
+
+    param_set_dirs = get_subdirs(results_dir)
+    for ps_dir in param_set_dirs:
+        shutil.rmtree(ps_dir)
+
+    print("compression complete")
 
 
 def get_sim_summaries(results_dir):
@@ -64,6 +82,10 @@ def get_sim_summaries(results_dir):
         raise
 
     return summ_fields, summary_dicts
+
+
+def get_simulation_id(results_dir):
+    return os.path.split(results_dir)[1]
 
 
 def get_param_set(ps_dir):
@@ -120,7 +142,7 @@ def get_summary_fields(summaries):
 
 
 def get_summary_fpath(results_dir):
-    simulation_id = os.path.split(results_dir)[1]
+    simulation_id = get_simulation_id(results_dir)
     summary_fname = '{}_summary.csv'.format(simulation_id)
     return os.path.join(results_dir, summary_fname)
 
