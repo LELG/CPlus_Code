@@ -9,12 +9,42 @@ Author: Yoshua Wakeham
         y.wakeham@student.unimelb.edu.au
 """
 
+import argparse
 import os, sys, shutil
 import csv
 
 
+def main():
+    args = parse_arguments()
+
+    results_dir = args.results_dir.rstrip('/')
+
+    if not os.path.isdir(results_dir):
+        err_template = "error: directory '{}' does not exist. Aborting."
+        print(err_template.format(results_dir))
+        sys.exit(1)
+
+    write_summary_file(results_dir)
+
+    if args.compress:
+        compress_results(results_dir)
+
+
+def parse_arguments():
+    """
+    Wrapper around argparse.ArgumentParser().
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("results_dir", help="results directory to summarise")
+    parser.add_argument("--compress", action="store_true",
+                        help="compress results to a gzipped tar archive")
+
+    return parser.parse_args()
+
+
 def write_summary_file(results_dir):
-    print("generating summary for dir: {}".format(results_dir))
+    print("generating summary for results in dir '{}'".format(results_dir))
     try:
         summ_fields, summary_dicts = get_sim_summaries(results_dir)
     except ValueError:
@@ -148,10 +178,4 @@ def get_summary_fpath(results_dir):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("usage: {} <results dir>".format(sys.argv[0]))
-        sys.exit(1)
-
-    results_dir = sys.argv[1].rstrip('/')
-    write_summary_file(results_dir)
-    compress_results(results_dir)
+    main()
