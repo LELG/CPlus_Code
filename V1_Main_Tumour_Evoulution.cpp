@@ -49,6 +49,7 @@ g++ -c -I/$HOME/include ranlib_prb.cpp
 
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
+#include <boost/format.hpp>
 
 // includes for cmd line parsing
 #include <boost/program_options.hpp>
@@ -1069,6 +1070,36 @@ namespace core {
 
 	}
 		
+    /*
+     * Helper function for writing some top-level sim results to a file.
+     */
+    void write_results_file(std::unique_ptr<Clonal_Expansion> const& CE, std::string fpath, double runtime_secs,
+                            unsigned int years, unsigned int hours, unsigned int seconds)
+    {
+        std::ofstream results_fstream;
+        results_fstream.open(fpath);
+
+        std::string header;
+        header = "pop_size\tnum_clones\truntime\telapsed_sim_years\telapsed_sim_hours\telapsed_sim_seconds\n";
+        results_fstream << header;
+
+        int rounded_runtime_secs = (int)runtime_secs;
+        std::ostringstream runtime;
+        int runtime_mins = rounded_runtime_secs/60;
+        runtime_secs -= runtime_mins * 60;
+        int runtime_hrs = runtime_mins/60;
+        runtime_mins = runtime_mins % 60;
+        runtime << boost::format("%1%:%|2$02|:%3$04.1f") % runtime_hrs % runtime_mins % runtime_secs;
+
+        results_fstream << CE->Population_Size << "\t"
+                        << CE->Tumour->size() << "\t"
+                        << runtime.str() << "\t"
+                        << years << "\t"
+                        << hours << "\t"
+                        << seconds << "\n";
+
+        results_fstream.close();
+    }
 
 	/**	FUNCTION compute_Tumour_Evolution(..) ------- # 10
 		
@@ -1087,7 +1118,7 @@ namespace core {
 	void compute_Tumour_Evolution(po::variables_map params)
 	{
 		using namespace std;
-
+        clock_t begin = clock(); // start timing simulation
 
 
 		unique_ptr<Clonal_Expansion> const CE = get_Clonnal_Expansion_DS(params);
@@ -1225,6 +1256,11 @@ namespace core {
 
   		Pop_Stats.close();
 
+        clock_t end = clock(); // finish timing simulation
+
+        double cpu_secs = double(end - begin) / CLOCKS_PER_SEC;
+        fs::path results_path = run_dir / "results.txt";
+        write_results_file(CE, results_path.string(), cpu_secs, years, hours, seconds);
 		
 	}// end of function
 
