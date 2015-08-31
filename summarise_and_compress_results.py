@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 """
-A script for crawling a results directory,
-generating a summary results file (CSV) from the data,
-and compressing the raw results.
+A script for crawling a simulation results directory,
+generating a summary file (CSV format) from the data,
+and, optionally, compressing the raw results.
 
-Author: Yoshua Wakeham
-        yoshua.wakeham@petermac.org
-        y.wakeham@student.unimelb.edu.au
+AUTHOR
+    Yoshua Wakeham
+    y.wakeham@student.unimelb.edu.au
+    yoshua.wakeham@petermac.org
 """
-
+from __future__ import print_function
 import argparse
 import os, sys, shutil
 import csv
@@ -33,7 +34,9 @@ def main():
 
 def parse_arguments():
     """
-    Wrapper around argparse.ArgumentParser().
+    Parse command line arguments.
+
+    This function is just a simple wrapper around an argparse.ArgumentParser.
     """
     parser = argparse.ArgumentParser()
 
@@ -44,17 +47,38 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def write_summary_file(results_dir):
-    print("generating summary for '{}'".format(results_dir))
-    try:
-        summaries = get_sim_summaries(results_dir)
-        summ_fields = summaries[0].get_field_names()
-    except ValueError:
-        # there are no simulations to summarise
-        print("summary failed: no simulations to summarise")
-        return
+def compress_results(results_dir):
+    """
+    Compress entire results directory into an archive,
+    and delete uncompressed subdirectories.
 
-    summ_fpath = get_summary_fpath(results_dir)
+    Note that on decompression, any files in the main results
+    directory (e.g. summary file, conf file) will be duplicated.
+    """
+    print("compressing results in  '{}'".format(results_dir))
+
+    sim_id = get_simulation_id(results_dir)
+    arch_name = os.path.join(results_dir, sim_id+'_results')
+    shutil.make_archive(arch_name, 'gztar', root_dir=results_dir)
+
+    # delete uncompressed subdirectories
+    param_set_dirs = get_subdirs(results_dir)
+    for ps_dir in param_set_dirs:
+        shutil.rmtree(ps_dir)
+
+    print("compression complete")
+
+
+def write_summary_file(results_dir):
+    """
+    Write a summary file for the simulation results stored in results_dir.
+    """
+    print("generating summary for '{}'".format(results_dir))
+
+    summaries = get_sim_summaries(results_dir)
+    summ_fields = summaries[0].get_field_names()
+
+    summ_fpath = generate_summary_fpath(results_dir)
 
     with open(summ_fpath, 'w') as summ_file:
         writer = csv.DictWriter(summ_file, fieldnames=summ_fields)
@@ -65,67 +89,76 @@ def write_summary_file(results_dir):
     print("summary file generated")
 
 
-def get_summary_fpath(results_dir):
+def generate_summary_fpath(results_dir):
+    """Generate a summary filepath for a results directory."""
     simulation_id = get_simulation_id(results_dir)
     summary_fname = '{}_summary.csv'.format(simulation_id)
     return os.path.join(results_dir, summary_fname)
 
 
-def compress_results(results_dir):
-    """
-    Compress entire results directory into
-    a single archive, and delete the uncompressed results.
-
-    Note that on decompression, duplicate copies of
-    any files in the main results directory (e.g. summary file)
-    will be created.
-    """
-    print("compressing results in  '{}'".format(results_dir))
-
-    sim_id = get_simulation_id(results_dir)
-    arch_name = os.path.join(results_dir, sim_id+'_results')
-    shutil.make_archive(arch_name, 'gztar', root_dir=results_dir)
-
-    param_set_dirs = get_subdirs(results_dir)
-    for ps_dir in param_set_dirs:
-        shutil.rmtree(ps_dir)
-
-    print("compression complete")
-
-
 def get_sim_summaries(results_dir):
     """
-    Return list of summary fields, and a list of simulation summaries (dicts).
+    Return a list of results summaries, one for each run in the test group.
 
-    Walk the results directory, generating a summary dictionary
-    for each simulation run. Return a 2-tuple: a list of all fields for the
-    summary CSV file, and a list of all the generated summaries.
-
-    Throws ValueError if no simulation results are found in the results dir.
+    Walk the results directory, populating a RunSummary object
+    for each simulation run. Return a list of all these summaries.
     """
     summaries = []
 
+    # assume that all subdirectories of main results dir
+    # are directories for individual param sets
     param_set_dirs = get_subdirs(results_dir)
+
     for ps_dir in param_set_dirs:
-        ps_conf_fpath = get_conf_fpath(ps_dir)
-        run_dirs = get_subdirs(ps_dir)
-        for run_dir in run_dirs:
-            run_summary = generate_run_summary(run_dir)
-            run_summary.add_field('param_set', get_param_set(ps_dir))
-            run_summary.add_fields_from_conf_file(ps_conf_fpath)
-            summaries.append(run_summary)
+        summaries += get_param_set_summaries(ps_dir)
+
+    return summaries
+
+
+def get_param_set_summaries(ps_dir):
+    """
+    Return a list of results summaries, one for each run in a param set.
+    """
+    summaries = []
+
+    # as above, assume that all subdirectories of
+    # param set dir are directories for individual runs
+    run_dirs = get_subdirs(ps_dir)
+
+    ps_conf_fpath = get_conf_fpath(ps_dir)
+
+    for run_dir in run_dirs:
+        run_summary = generate_run_summary(run_dir)
+        run_summary.add_field('param_set', get_param_set(ps_dir))
+        run_summary.add_fields_from_conf_file(ps_conf_fpath)
+        summaries.append(run_summary)
 
     return summaries
 
 
 def generate_run_summary(run_dir):
-    summ = RunSummary()
-    summ.add_field('run_number', get_run_number(run_dir))
-    summ.add_fields_from_run_dir(run_dir)
-    return summ
+    """
+    Create and populate a RunSummary object for an individual simulation run.
+    """
+    summary = RunSummary()
+    summary.add_field('run_number', get_run_number(run_dir))
+    summary.add_fields_from_run_dir(run_dir)
+    return summary
 
 
 class RunSummary(object):
+    """
+    A summary of a simulation run.
+
+    This class is a straightforward wrapper around
+    a dictionary of summary fields. It provides various
+    methods for scraping summary data from config files,
+    results files etc.
+
+    To add a new field or set of fields to the summary
+    files generated by this script, add extra methods or
+    method calls to this class.
+    """
     def __init__(self):
         self.fields = {}
 
@@ -148,7 +181,7 @@ class RunSummary(object):
 
     def get_field_names(self):
         """
-        Get a sorted list of field names for this summary.
+        Get a sorted list of the field names for this summary.
 
         Get a list of field names for this summary, sorted
         in lexicographic order. (With the exception of 'param_set'
@@ -157,6 +190,7 @@ class RunSummary(object):
         for writing the header of a CSV file.
         """
         field_names = sorted(self.fields.keys())
+
         # make sure that param set and run number are first columns in CSV file
         if 'run_number' in field_names:
             field_names.remove('run_number')
@@ -164,17 +198,21 @@ class RunSummary(object):
         if 'param_set' in field_names:
             field_names.remove('param_set')
             field_names = ['param_set'] + field_names
+
         return field_names
 
     def add_fields_from_conf_file(self, conf_fpath):
         """
-        Parse parameters from a configuration file and add them to summary.
+        Add parameters from a configuration file to the summary.
 
         This method assumes the config file is a list of
 
             param = val
 
         assignments (the spaces around the '=' being optional).
+
+        Note that this method hardcodes the list of parameters
+        to be added to the summary.
         """
         params_to_store = ['pro', 'die', 'mut', 'qui',
                            'prob_mut_pos', 'prob_mut_neg',
@@ -198,17 +236,19 @@ class RunSummary(object):
 
     def add_fields_from_run_dir(self, run_dir):
         """
-        Add summary fields from files contained in a replicate run directory.
+        Add fields to summary from files contained in a replicate run directory.
         """
         results_fpath = os.path.join(run_dir, 'results.txt')
+        if not os.path.isfile(results_fpath):
+            raise IOError("cannot find results for run_dir: " + run_dir)
         self.add_fields_from_csv_file(results_fpath, delim='\t')
 
     def add_fields_from_csv_file(self, fpath, delim=','):
         """
         Add all fields in a csv file to the run summary.
 
-        This assumes that every field in the results file
-        should be stored to the summary. It will also only take values
+        This assumes that every field in the CSV file should
+        be stored to the summary. It will also only take values
         from the first row of the file; any later rows will be ignored.
         """
         with open(fpath) as results_f:
@@ -220,34 +260,57 @@ class RunSummary(object):
 
 def get_conf_fpath(sim_dir):
     """
-    Get the path to the config file in this directory.
+    Search a directory for a config file, returning its filepath if found.
+
+    Raises a ValueError if either no conf file, or
+    more than one, is found.
     """
-    conf_files = []
+    conf_fpath = None
 
     for name in os.listdir(sim_dir):
         rel_path = os.path.join(sim_dir, name)
-        if os.path.isfile(rel_path) and os.path.splitext(rel_path)[1] == '.conf':
-            conf_files.append(rel_path)
+        if is_conf_fpath(rel_path):
+            if not conf_fpath:
+                conf_fpath = rel_path
+            else:
+                raise ValueError("multiple conf files in dir '" + sim_dir + "'")
 
-    if len(conf_files) != 1:
-        raise IOError("no unique conf file in directory '" + sim_dir + "'")
+    if not conf_fpath:
+        raise ValueError("no conf file in dir '" + sim_dir + "'")
 
-    return conf_files[0]
+    return conf_fpath
+
+
+def is_conf_fpath(fpath):
+    has_conf_extension = os.path.splitext(fpath)[1] == '.conf'
+    return os.path.isfile(fpath) and has_conf_extension
 
 
 def get_simulation_id(results_dir):
+    """
+    Return an ID string for the simulation test group.
+    """
     return os.path.split(results_dir)[1]
 
 
 def get_param_set(ps_dir):
+    """
+    Return an ID string for a simulation parameter set.
+    """
     return os.path.split(ps_dir)[1]
 
 
 def get_run_number(run_dir):
+    """
+    Return the number of the replicate run (as a string).
+    """
     return os.path.split(run_dir)[1]
 
 
 def get_subdirs(dirpath):
+    """
+    Get a list of subdirectories of a given directory.
+    """
     return [os.path.join(dirpath, name)
             for name
             in os.listdir(dirpath)
