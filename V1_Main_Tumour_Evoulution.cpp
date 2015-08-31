@@ -1135,7 +1135,7 @@ namespace core {
   		unsigned int elapsed_hours = 0; 
   		ofstream Tumour_Evolution;
   		ofstream Pop_Stats;
-        ofstream Detailed_Output;
+        ofstream debugging;
 
         // construct paths for output files
         fs::path run_dir = params["run_dir"].as<string>();
@@ -1145,10 +1145,10 @@ namespace core {
         }
         fs::path te_path = run_dir / "pop_size.txt";
         fs::path stats_path = run_dir / "stats.txt";
-        fs::path detailed_output_path = run_dir / "detailed_output.txt";
+        fs::path debugging_path = run_dir / "debugging.txt";
 
   		Tumour_Evolution.open (te_path.string());
-        Detailed_Output.open(detailed_output_path.string());
+        debugging.open(debugging_path.string());
 
   		//bool exit_flag = true;
   		unsigned int times_to_wait = 0;
@@ -1212,7 +1212,7 @@ namespace core {
 				//CE -> feedback =  map_Feedback( (double) CE -> Population_Size  );
 				//if(hours % 10 == 0)
 				//{
-  					Detailed_Output << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
+  					debugging << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
   					
   				//	getchar();
   					Tumour_Evolution << CE -> Population_Size << "\t" << elapsed_hours << "\n";
@@ -1220,7 +1220,7 @@ namespace core {
 					
 					if( CE -> Population_Size >  Pop_Size_p )
 					{
-						Detailed_Output << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
+						debugging << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
   						times_to_wait++;
 
   						break;
@@ -1237,7 +1237,7 @@ namespace core {
 		cout << "FINISH MAIN LOOP ..... SAVING stats" << endl;
 		
 		Tumour_Evolution.close();
-        Detailed_Output.close();
+        debugging.close();
 		
 		Pop_Stats.open (stats_path.string());
 		Pop_Stats << "id\t" << "Clone_Size\t" << "Proliferation_Rate\t" << "Mutation_Rate\t" << "Extinct\t" << "G_ID"<<"\n";
