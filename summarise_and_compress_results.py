@@ -45,7 +45,7 @@ def parse_arguments():
 
 
 def write_summary_file(results_dir):
-    print("generating summary for results in dir '{}'".format(results_dir))
+    print("generating summary for '{}'".format(results_dir))
     try:
         summaries = get_sim_summaries(results_dir)
         summ_fields = summaries[0].get_field_names()
@@ -65,6 +65,12 @@ def write_summary_file(results_dir):
     print("summary file generated")
 
 
+def get_summary_fpath(results_dir):
+    simulation_id = get_simulation_id(results_dir)
+    summary_fname = '{}_summary.csv'.format(simulation_id)
+    return os.path.join(results_dir, summary_fname)
+
+
 def compress_results(results_dir):
     """
     Compress entire results directory into
@@ -74,7 +80,7 @@ def compress_results(results_dir):
     any files in the main results directory (e.g. summary file)
     will be created.
     """
-    print("compressing results in dir: {}".format(results_dir))
+    print("compressing results in  '{}'".format(results_dir))
 
     sim_id = get_simulation_id(results_dir)
     arch_name = os.path.join(results_dir, sim_id+'_results')
@@ -101,24 +107,21 @@ def get_sim_summaries(results_dir):
 
     param_set_dirs = get_subdirs(results_dir)
     for ps_dir in param_set_dirs:
-        param_set = get_param_set(ps_dir)
         ps_conf_fpath = get_conf_fpath(ps_dir)
         run_dirs = get_subdirs(ps_dir)
         for run_dir in run_dirs:
-            run_summary = get_run_summary(run_dir)
-            run_summary.add_field('param_set', param_set)
-            run_summary.add_params_from_conf_file(ps_conf_fpath)
+            run_summary = generate_run_summary(run_dir)
+            run_summary.add_field('param_set', get_param_set(ps_dir))
+            run_summary.add_fields_from_conf_file(ps_conf_fpath)
             summaries.append(run_summary)
 
     return summaries
 
 
-def get_run_summary(run_dir):
+def generate_run_summary(run_dir):
     summ = RunSummary()
     summ.add_field('run_number', get_run_number(run_dir))
-    fields_funcs_map = get_run_fields()
-    for fieldname, get_field_value in fields_funcs_map.items():
-        summ.add_field(fieldname, get_field_value(run_dir))
+    summ.add_fields_from_run_dir(run_dir)
     return summ
 
 
@@ -137,14 +140,23 @@ class RunSummary(object):
         else:
             print("warning: attempting to overwrite RunSummary fields dict.")
             print("         You probably don't want to do this. If you are")
-            print("         sure you want to do this, you can overwrite")
+            print("         sure you want to do this, I direct you to")
             print("         the _RunSummary__fields attribute.")
 
     def add_field(self, field_name, value):
         self.fields[field_name] = value
 
     def get_field_names(self):
-        field_names = self.fields.keys()
+        """
+        Get a sorted list of field names for this summary.
+
+        Get a list of field names for this summary, sorted
+        in lexicographic order. (With the exception of 'param_set'
+        and 'run_number', which are shifted to the start of the list.)
+        These field names can then be passed to csv.DictWriter
+        for writing the header of a CSV file.
+        """
+        field_names = sorted(self.fields.keys())
         # make sure that param set and run number are first columns in CSV file
         if 'run_number' in field_names:
             field_names.remove('run_number')
@@ -154,7 +166,7 @@ class RunSummary(object):
             field_names = ['param_set'] + field_names
         return field_names
 
-    def add_params_from_conf_file(self, conf_fpath):
+    def add_fields_from_conf_file(self, conf_fpath):
         """
         Parse parameters from a configuration file and add them to summary.
 
@@ -178,11 +190,32 @@ class RunSummary(object):
                 line_dict = match.groupdict()
                 line_param = line_dict['param']
                 if line_param in params_to_store:
-                    self.fields[line_param] = line_dict['val']
+                    self.add_field(line_param, line_dict['val'])
                     num_stored += 1
 
         if num_stored != len(params_to_store):
             print("warning: config file missing some expected parameters")
+
+    def add_fields_from_run_dir(self, run_dir):
+        """
+        Add summary fields from files contained in a replicate run directory.
+        """
+        results_fpath = os.path.join(run_dir, 'results.txt')
+        self.add_fields_from_csv_file(results_fpath, delim='\t')
+
+    def add_fields_from_csv_file(self, fpath, delim=','):
+        """
+        Add all fields in a csv file to the run summary.
+
+        This assumes that every field in the results file
+        should be stored to the summary. It will also only take values
+        from the first row of the file; any later rows will be ignored.
+        """
+        with open(fpath) as results_f:
+            reader = csv.DictReader(results_f, delimiter=delim)
+            row = next(reader)
+            for field, val in row.items():
+                self.add_field(field, val)
 
 
 def get_conf_fpath(sim_dir):
@@ -201,22 +234,6 @@ def get_conf_fpath(sim_dir):
 
     return conf_files[0]
 
-def get_run_fields():
-    name_func_mapping = {'runtime': get_runtime,
-                         'elapsed_cycles': get_elapsed_cycles}
-    return name_func_mapping
-
-
-def get_runtime(run_dir):
-    # TODO implement this properly; currently just a stub
-    # open results file, grab the 'elapsed time' value
-    return ord(run_dir[-1]) * 100
-
-
-def get_elapsed_cycles(run_dir):
-    # TODO implement this properly
-    return ord(run_dir[-1]) * 20000
-
 
 def get_simulation_id(results_dir):
     return os.path.split(results_dir)[1]
@@ -231,15 +248,10 @@ def get_run_number(run_dir):
 
 
 def get_subdirs(dirpath):
-    return [os.path.join(dirpath, name) for name
+    return [os.path.join(dirpath, name)
+            for name
             in os.listdir(dirpath)
             if os.path.isdir(os.path.join(dirpath, name))]
-
-
-def get_summary_fpath(results_dir):
-    simulation_id = get_simulation_id(results_dir)
-    summary_fname = '{}_summary.csv'.format(simulation_id)
-    return os.path.join(results_dir, summary_fname)
 
 
 if __name__ == "__main__":
