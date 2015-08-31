@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 """
 A script for crawling a results directory,
 generating a summary results file (CSV) from the data,
