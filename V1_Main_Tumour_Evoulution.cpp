@@ -1102,9 +1102,8 @@ namespace core {
 		string path = "./V1_Clone_Data/";
 
   		unsigned int elapsed_hours = 0; 
-  		ofstream Tumour_Evolution;
-  		ofstream Pop_Stats;
-        ofstream Detailed_Output;
+        ofstream tumour_size_file;
+        ofstream detailed_output_file;
 
         // construct paths for output files
         fs::path run_dir = params["run_dir"].as<string>();
@@ -1112,12 +1111,11 @@ namespace core {
         if (!fs::is_directory(run_dir)) {
             fs::create_directory(run_dir);
         }
-        fs::path te_path = run_dir / "V1_2_Main_Tumour_Evolution.txt";
-        fs::path stats_path = run_dir / "V2_2_Main_Tumour_Evolution_Stats.txt";
+        fs::path ts_path = run_dir / "tumour_size.txt";
         fs::path detailed_output_path = run_dir / "detailed_output.txt";
 
-  		Tumour_Evolution.open (te_path.string());
-        Detailed_Output.open(detailed_output_path.string());
+        tumour_size_file.open(ts_path.string());
+        detailed_output_file.open(detailed_output_path.string());
 
   		//bool exit_flag = true;
   		unsigned int times_to_wait = 0;
@@ -1181,15 +1179,15 @@ namespace core {
 				//CE -> feedback =  map_Feedback( (double) CE -> Population_Size  );
 				//if(hours % 10 == 0)
 				//{
-  					Detailed_Output << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
+                    detailed_output_file << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
   					
   				//	getchar();
-  					Tumour_Evolution << CE -> Population_Size << "\t" << elapsed_hours << "\n";
+                    tumour_size_file << CE -> Population_Size << "\t" << elapsed_hours << "\n";
 					elapsed_hours += 1;
 					
 					if( CE -> Population_Size >  Pop_Size_p )
 					{
-						Detailed_Output << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
+                        detailed_output_file << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
   						times_to_wait++;
 
   						break;
@@ -1205,29 +1203,36 @@ namespace core {
 
 		cout << "FINISH MAIN LOOP ..... SAVING stats" << endl;
 		
-		Tumour_Evolution.close();
-        Detailed_Output.close();
+        tumour_size_file.close();
+        detailed_output_file.close();
 		
-		Pop_Stats.open (stats_path.string());
-		Pop_Stats << "id\t" << "Clone_Size\t" << "Proliferation_Rate\t" << "Mutation_Rate\t" << "Extinct\t" << "G_ID"<<"\n";
-  		
-  		for( ith_clone = 0; ith_clone < CE-> Tumour -> size() ; ith_clone ++)
-  		{
-  			Pop_Stats << ith_clone << "\t" 
-  					  << CE -> Tumour -> at(ith_clone) -> Clone_Size << "\t" 
-  					  << CE -> Tumour -> at(ith_clone) -> P_Expansion[1] << "\t"
-  					  << CE -> Tumour -> at(ith_clone) -> Mutation_Rate << "\t"
-  					  << CE -> Tumour -> at(ith_clone) -> clone_extinct << "\t"
-  					  << CE -> Tumour -> at (ith_clone) -> Generation_ID  << "\n" ;
-
-
-  		}
-
-  		Pop_Stats.close();
-
-		
+        fs::path stats_path = run_dir / "stats.txt";
+        write_stats_file(CE, stats_path.string());
 	}// end of function
 
+    void write_stats_file(std::unique_ptr<Clonal_Expansion> const& CE, std::string fpath)
+    {
+        std::ofstream stats_fstream;
+        stats_fstream.open(fpath);
+
+        std::string header;
+        header = "id\tClone_size\tProliferation_Rate\tMutation_Rate\tExtinct\tG_ID\n";
+        stats_fstream << header;
+
+        for(int i=0; i < CE->Tumour->size(); i++)
+        {
+            std::unique_ptr<Clone>& curr_clone = CE->Tumour->at(i);
+
+            stats_fstream << i << "\t"
+                          << curr_clone->Clone_Size << "\t"
+                          << curr_clone->P_Expansion[1] << "\t"
+                          << curr_clone->Mutation_Rate << "\t"
+                          << curr_clone->clone_extinct << "\t"
+                          << curr_clone->Generation_ID  << "\n" ;
+        }
+
+        stats_fstream.close();
+    }
 }  // namespace blah
 
 
