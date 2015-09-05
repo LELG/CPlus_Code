@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Generate script for running batch (e.g. PBS) jobs
 # and create some directories for storing results

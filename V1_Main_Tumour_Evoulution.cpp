@@ -49,6 +49,7 @@ g++ -c -I/$HOME/include ranlib_prb.cpp
 
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
+#include <boost/format.hpp>
 
 // includes for cmd line parsing
 #include <boost/program_options.hpp>
@@ -1069,6 +1070,63 @@ namespace core {
 
 	}
 		
+    /*
+     * Helper function for writing some top-level sim results to a file.
+     */
+    void write_results_file(std::unique_ptr<Clonal_Expansion> const& CE, std::string fpath, double runtime_secs,
+                            unsigned int years, unsigned int hours, unsigned int seconds)
+    {
+        std::ofstream results_fstream;
+        results_fstream.open(fpath);
+
+        std::string header;
+        header = "pop_size\tnum_clones\truntime\telapsed_sim_years\telapsed_sim_hours\telapsed_sim_seconds\n";
+        results_fstream << header;
+
+        int rounded_runtime_secs = (int)runtime_secs;
+        std::ostringstream runtime;
+        int runtime_mins = rounded_runtime_secs/60;
+        runtime_secs -= runtime_mins * 60;
+        int runtime_hrs = runtime_mins/60;
+        runtime_mins = runtime_mins % 60;
+        runtime << boost::format("%1%:%|2$02|:%3$04.1f") % runtime_hrs % runtime_mins % runtime_secs;
+
+        results_fstream << CE->Population_Size << "\t"
+                        << CE->Tumour->size() << "\t"
+                        << runtime.str() << "\t"
+                        << years << "\t"
+                        << hours << "\t"
+                        << seconds << "\n";
+
+        results_fstream.close();
+    }
+
+    /*
+     * Helper function for writing clone statistics to file.
+     */
+    void write_stats_file(std::unique_ptr<Clonal_Expansion> const& CE, std::string fpath)
+    {
+        std::ofstream stats_fstream;
+        stats_fstream.open(fpath);
+
+        std::string header;
+        header = "id\tClone_size\tProliferation_Rate\tMutation_Rate\tExtinct\tG_ID\n";
+        stats_fstream << header;
+
+        for(int i=0; i < CE->Tumour->size(); i++)
+        {
+            std::unique_ptr<Clone>& curr_clone = CE->Tumour->at(i);
+
+            stats_fstream << i << "\t"
+                          << curr_clone->Clone_Size << "\t"
+                          << curr_clone->P_Expansion[1] << "\t"
+                          << curr_clone->Mutation_Rate << "\t"
+                          << curr_clone->clone_extinct << "\t"
+                          << curr_clone->Generation_ID  << "\n" ;
+        }
+
+        stats_fstream.close();
+    }
 
 	/**	FUNCTION compute_Tumour_Evolution(..) ------- # 10
 		
@@ -1087,7 +1145,7 @@ namespace core {
 	void compute_Tumour_Evolution(po::variables_map params)
 	{
 		using namespace std;
-
+        clock_t begin = clock(); // start timing simulation
 
 
 		unique_ptr<Clonal_Expansion> const CE = get_Clonnal_Expansion_DS(params);
@@ -1102,8 +1160,9 @@ namespace core {
 		string path = "./V1_Clone_Data/";
 
   		unsigned int elapsed_hours = 0; 
+
         ofstream tumour_size_file;
-        ofstream detailed_output_file;
+        ofstream debugging;
 
         // construct paths for output files
         fs::path run_dir = params["run_dir"].as<string>();
@@ -1111,11 +1170,12 @@ namespace core {
         if (!fs::is_directory(run_dir)) {
             fs::create_directory(run_dir);
         }
+
         fs::path ts_path = run_dir / "tumour_size.txt";
-        fs::path detailed_output_path = run_dir / "detailed_output.txt";
+        fs::path debugging_path = run_dir / "debugging.txt";
 
         tumour_size_file.open(ts_path.string());
-        detailed_output_file.open(detailed_output_path.string());
+        debugging.open(debugging_path.string());
 
   		//bool exit_flag = true;
   		unsigned int times_to_wait = 0;
@@ -1179,7 +1239,7 @@ namespace core {
 				//CE -> feedback =  map_Feedback( (double) CE -> Population_Size  );
 				//if(hours % 10 == 0)
 				//{
-                    detailed_output_file << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
+  					debugging << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
   					
   				//	getchar();
                     tumour_size_file << CE -> Population_Size << "\t" << elapsed_hours << "\n";
@@ -1187,7 +1247,7 @@ namespace core {
 					
 					if( CE -> Population_Size >  Pop_Size_p )
 					{
-                        detailed_output_file << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
+						debugging << " \n\n ACTIVE CELLS " <<  CE -> Population_Size  << " CLONES " << CE -> Tumour -> size() << "   H: " << hours  << " Y: " << years << " FD: " << CE -> feedback<< " PB: "<< prolif_rate - CE -> feedback << endl;
   						times_to_wait++;
 
   						break;
@@ -1204,35 +1264,18 @@ namespace core {
 		cout << "FINISH MAIN LOOP ..... SAVING stats" << endl;
 		
         tumour_size_file.close();
-        detailed_output_file.close();
+        debugging.close();
+
+        clock_t end = clock(); // finish timing simulation
+
+        double cpu_secs = double(end - begin) / CLOCKS_PER_SEC;
+        fs::path results_path = run_dir / "results.txt";
+        write_results_file(CE, results_path.string(), cpu_secs, years, hours, seconds);
 		
         fs::path stats_path = run_dir / "stats.txt";
         write_stats_file(CE, stats_path.string());
 	}// end of function
 
-    void write_stats_file(std::unique_ptr<Clonal_Expansion> const& CE, std::string fpath)
-    {
-        std::ofstream stats_fstream;
-        stats_fstream.open(fpath);
-
-        std::string header;
-        header = "id\tClone_size\tProliferation_Rate\tMutation_Rate\tExtinct\tG_ID\n";
-        stats_fstream << header;
-
-        for(int i=0; i < CE->Tumour->size(); i++)
-        {
-            std::unique_ptr<Clone>& curr_clone = CE->Tumour->at(i);
-
-            stats_fstream << i << "\t"
-                          << curr_clone->Clone_Size << "\t"
-                          << curr_clone->P_Expansion[1] << "\t"
-                          << curr_clone->Mutation_Rate << "\t"
-                          << curr_clone->clone_extinct << "\t"
-                          << curr_clone->Generation_ID  << "\n" ;
-        }
-
-        stats_fstream.close();
-    }
 }  // namespace blah
 
 
