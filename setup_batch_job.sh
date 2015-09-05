@@ -76,18 +76,18 @@ today=$(date +'%Y-%m-%d')
 today_dir="results/$today"
 if [ ! -d "$today_dir" ]
 then
-  printf "=== Creating results directory for "$today" ...\r"
+  printf "==> Creating results directory for "$today" ...\r"
   mkdir -p "$today_dir"
-  printf "=== Creating results directory for "$today" ... done.\n"
+  printf "==> Creating results directory for "$today" ... done.\n"
 fi
 
 # make main directory for this test group
 test_group_dir="$today_dir/$test_group"
 if [ ! -d $test_group_dir ]
 then
-  printf "=== Creating test group directory: "$test_group_dir" ...\r"
+  printf "==> Creating test group directory: "$test_group_dir" ...\r"
   mkdir -p $test_group_dir
-  printf "=== Creating test group directory: "$test_group_dir" ... done.\n"
+  printf "==> Creating test group directory: "$test_group_dir" ... done.\n"
 else
   echo "    WARNING: results for test group "$test_group" already exist"
   i=1
@@ -96,15 +96,15 @@ else
   done
   test_group_dir="$test_group_dir($i)"
   test_group="$test_group($i)"
-  printf "=== Creating test group directory: "$test_group_dir" ...\r"
+  printf "==> Creating test group directory: "$test_group_dir" ...\r"
   mkdir -p $test_group_dir
-  printf "=== Creating test group directory: "$test_group_dir" ... done.\n"
+  printf "==> Creating test group directory: "$test_group_dir" ... done.\n"
 fi
 
 if [ ! -f $test_group_dir/$tg_config_file ]; then
-  printf "=== Copying config file to $test_group_dir ...\r"
+  printf "==> Copying config file to $test_group_dir ...\r"
   cp $tg_config_file $test_group_dir
-  printf "=== Copying config file to $test_group_dir ... done.\n"
+  printf "==> Copying config file to $test_group_dir ... done.\n"
 fi
 
 # strip comments from config file
@@ -127,7 +127,7 @@ param_set_padding=${#num_param_sets}
 
 # start constructing PBS script
 pbs_script="PBS-$test_group.sh"
-echo "=== Creating PBS script for \`$test_group\` ..."
+echo "==> Creating PBS script for \`$test_group\` ..."
 
 # first, send necessary variables
 cat >> $pbs_script << _endmsg
@@ -173,16 +173,16 @@ unset IFS
 param_set_dir=$(printf "%s/%0*d" $test_group_dir $param_set_padding $param_set)
 
 if [ ! -d $param_set_dir ]; then
-  printf "=== Creating param set directory: "$param_set_dir" ...\r"
+  printf "==> Creating param set directory: "$param_set_dir" ...\r"
   mkdir -p $param_set_dir
-  printf "=== Creating param set directory: "$param_set_dir" ... done.\n"
+  printf "==> Creating param set directory: "$param_set_dir" ... done.\n"
 fi
 
 # each parameter set will get stored to its own file
 # (in a boost::program_options compatible format)
 param_set_config_file="$param_set_dir/$test_group-$param_set.cpp.conf"
 
-printf "=== Writing parameter set to config file ...\r"
+printf "==> Writing parameter set to config file ...\r"
 
 i=0
 while [ $i -lt $num_params ]; do
@@ -228,7 +228,7 @@ param_set = $param_set
 test_group_dir = '$test_group_dir'
 param_set_dir = '$param_set_dir'" >> $param_set_config_file
 
-printf "=== Writing parameter set to config file ... done.\n"
+printf "==> Writing parameter set to config file ... done.\n"
 
 ./run_param_set.sh $param_set_config_file $test_group $param_set $param_set_dir $runs_per_ps
 
@@ -236,4 +236,4 @@ printf "=== Writing parameter set to config file ... done.\n"
 cp "$this_script" "$test_group_dir"
 _endmsg
 
-echo "=== PBS script created as $pbs_script."
+echo "==> PBS script created as $pbs_script."
