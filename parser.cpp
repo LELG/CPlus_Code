@@ -35,12 +35,25 @@ void validate_num_tokens( const po::variables_map& vm, const char* opt, unsigned
     }
 }
 
+/*
+ * Aux function to check that a probability value is reasonable
+ * (i.e. is between 0 and 1)
+ */
+void validate_probability( const po::variables_map& vm, const char* opt)
+{
+    double val = vm[opt].as<double>();
+    if ((val < 0.0) || (1.0 < val))
+    {
+        throw std::logic_error(std::string("Option '") + opt + "' is a probability; it must be a float between 0 and 1.");
+    }
+}
+
 namespace parser {
 
 /*
  * Function to parse our command line options.
  */
-po::variables_map parse_options(int argc, char *argv[])
+po::variables_map parse_options(int argc, char *argv[], std::ostream& out)
 {
     std::string config_fpath;
 
@@ -185,7 +198,7 @@ po::variables_map parse_options(int argc, char *argv[])
         // Display help text when requested
         if (vm.count("help"))
         {
-            std::cout << all << std::endl;
+            out << all << std::endl;
             std::exit(EXIT_SUCCESS);
         }
 
@@ -211,12 +224,16 @@ po::variables_map parse_options(int argc, char *argv[])
         {
             validate_num_tokens(vm, "init_diversity", 2);
         }
+        validate_probability(vm, "prob_mut_pos");
+        validate_probability(vm, "prob_mut_neg");
+        validate_probability(vm, "prob_inc_mut");
+        validate_probability(vm, "prob_dec_mut");
     }
     catch (std::exception &e)
     {
-        std::cerr << "\nError: " << e.what() << std::endl;
-        std::cout << "See --help for usage details" << std::endl;
-        std::exit(EXIT_FAILURE);
+        out << "\nError: " << e.what() << std::endl;
+        out << "See --help for usage details" << std::endl;
+        throw;
     }
 
     return vm;

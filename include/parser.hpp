@@ -6,7 +6,7 @@
 namespace po = boost::program_options;
 
 namespace parser {
-    po::variables_map parse_options(int argc, char *argv[]);
+    po::variables_map parse_options(int argc, char *argv[], std::ostream& out);
 
     enum Mode {in_vivo, cell_line};
     enum TreatmentType {single_dose, metronomic, adaptive, none};

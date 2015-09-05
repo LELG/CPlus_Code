@@ -1284,8 +1284,6 @@ int main(int argc, char *argv[])
 	using namespace std;
 	using namespace core;
 	
-    po::variables_map params = parser::parse_options(argc, argv);
-
 	long seed;
 
 
@@ -1295,11 +1293,11 @@ int main(int argc, char *argv[])
 
     try
     {
+        po::variables_map params = parser::parse_options(argc, argv, cout);
         compute_Tumour_Evolution(params);
         
         return EXIT_SUCCESS;
     }
-
     catch( exception const& error )
     {
         cerr << "!" << error.what() << endl;
