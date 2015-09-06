@@ -19,6 +19,7 @@ namespace core
             double Binomial_dying(unsigned int Clone_Size, double Death_Rate);
             double Binomial_newborn(unsigned int Clone_Size, double Adjusted_Proliferation_Rate);
             unsigned int Binomial_Mutants(unsigned int NewBorn_Size, double Mutation_Rate);
+            unsigned int binomial_sample(unsigned int n, double p);
             //unsigned int* Mitosis_Multinomial(unsigned int Clone_Size);
             //unsigned int Uniform_Mutation_Division_Memebers(unsigned int Clone_Size);
             double Uniform_Mutation_Rate(double mu_rate);

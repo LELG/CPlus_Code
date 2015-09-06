@@ -46,6 +46,11 @@ unsigned int Random::Binomial_Mutants(unsigned int NewBorn_Size, double Mutation
     return binomial_distribution<unsigned int>{NewBorn_Size, Mutation_Rate}(eng);
 }
 
+unsigned int Random::binomial_sample(unsigned int n, double p)
+{
+    return std::binomial_distribution<unsigned int>{n, p}(eng);
+}
+
 double Random::Uniform_Mutation_Rate(double mu_rate)
 {
     return uniform_real_distribution<double>{mu_rate/2.0, mu_rate*2.0}(eng);
