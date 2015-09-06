@@ -392,6 +392,8 @@ namespace core {
 			 					{ 									}
 		~Clonal_Expansion() 
 		{}
+
+        void reduce_population(double sample_frac, Random r);
 			 				
 	};// end DS
 
@@ -407,12 +409,45 @@ namespace core {
 	}// end function
 
 
+    /*
+     * Reduce tumour population (in-place) by a fixed percentage.
+     * Randomly select that percentage of cells from the population,
+     * and discard the remainder.
+     */
+    void Clonal_Expansion::reduce_population(double sample_proportion, Random r)
+    {
+        if (sample_proportion <= 0 || 1 < sample_proportion)
+        {
+            throwX( "argument to reduce_population must be a proportion, a float in (0,1]" );
+        }
+        else if (sample_proportion == 1)
+        {
+            return;
+        }
 
+        int total_cells_to_sample = sample_proportion * Tumour->size();
+        int cells_sampled_so_far = 0;
 
+		vector<unique_ptr<Clone>> *tumour_sample = new vector<unique_ptr<Clone>>;
 
+        for(std::vector<unique_ptr<Clone>>::iterator clone_it = Tumour->begin(); clone_it != Tumour->end(); ++clone_it) {
+            int clone_sample_size = r.binomial_sample((*clone_it)->Clone_Size, sample_proportion);
 
+            if (clone_sample_size > 0)
+            {
+                (*clone_it)->Clone_Size = clone_sample_size;
+                tumour_sample->push_back(std::move(*clone_it));
+                cells_sampled_so_far += clone_sample_size;
+            }
 
+            if (cells_sampled_so_far >= total_cells_to_sample)
+            {
+                break;
+            }
+        }
 
+        Tumour = tumour_sample;
+    }
 
 
 	Random r;
