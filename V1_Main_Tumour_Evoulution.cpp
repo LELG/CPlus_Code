@@ -387,8 +387,8 @@ namespace core {
 				 				Selective_Pressure			( 0.0 ),
 				 				Population_Size 			( 0   ),
 			 					FD(0),
-			 					feedback 					( 0.0 ),
-                                params                          ( params )
+                                params                          ( params ),
+								feedback 					( 0.0 )
 			 					{ 									}
 		~Clonal_Expansion() 
 		{}
@@ -1049,7 +1049,7 @@ namespace core {
         header = "id\tClone_size\tProliferation_Rate\tMutation_Rate\tExtinct\tG_ID\n";
         stats_fstream << header;
 
-        for(int i=0; i < CE->Tumour->size(); i++)
+        for(unsigned int i=0; i < CE->Tumour->size(); i++)
         {
             std::unique_ptr<Clone>& curr_clone = CE->Tumour->at(i);
 
