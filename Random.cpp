@@ -71,7 +71,7 @@ namespace core {
         return U;
     }
 
-    double Random::Uniform_Mutation_Rate_2(double Parent_mu_rate)
+    double Random::Uniform_Mutation_Rate_2(double Parent_mu_rate, double mut_rate)
     {
 
         double U = std::normal_distribution<double>{Parent_mu_rate, mut_rate }(eng);

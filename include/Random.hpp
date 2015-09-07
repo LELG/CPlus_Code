@@ -24,7 +24,7 @@ namespace core
             //unsigned int Uniform_Mutation_Division_Memebers(unsigned int Clone_Size);
             double Uniform_Mutation_Rate(double mu_rate);
             double Update_Proliferation_Rate(double Proliferation_Rate);
-            double Uniform_Mutation_Rate_2(double Parent_mu_rate);
+            double Uniform_Mutation_Rate_2(double Parent_mu_rate, double mut_rate);
 
         private:
             std::mt19937 eng{std::random_device{}()};

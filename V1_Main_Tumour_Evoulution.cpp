@@ -758,7 +758,7 @@ namespace core {
 			CE -> Tumour -> back() -> Generation_ID_Counter = 0; 
 
 
-			CE -> Tumour -> back() -> Mutation_Rate = r.Uniform_Mutation_Rate_2(mr);
+			CE -> Tumour -> back() -> Mutation_Rate = r.Uniform_Mutation_Rate_2(mr, mut_rate);
 
 			
 			CE -> Tumour -> back() -> P_Expansion[1] =  r.Update_Proliferation_Rate(pr);
