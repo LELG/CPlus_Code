@@ -425,7 +425,7 @@ namespace core {
             return;
         }
 
-        int total_cells_to_sample = sample_proportion * Tumour->size();
+        int total_cells_to_sample = (int)(sample_proportion * Population_Size);
         int cells_sampled_so_far = 0;
 
 		unique_ptr<vector<unique_ptr<Clone>>> tumour_sample = unique_ptr<vector<unique_ptr<Clone>>>( new vector<unique_ptr<Clone>> );
@@ -447,6 +447,7 @@ namespace core {
         }
 
         Tumour = std::move(tumour_sample);
+        Population_Size = cells_sampled_so_far;
     }
 
 
