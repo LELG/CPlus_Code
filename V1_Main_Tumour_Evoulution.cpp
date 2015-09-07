@@ -380,7 +380,7 @@ namespace core {
 		//unordered_map<int, struct Clone*> Tumour;
 		/* We can create as many constructures as we want */
 
-		 vector<unique_ptr<Clone> > *Tumour = new vector<unique_ptr<Clone> >;
+		 unique_ptr<vector<unique_ptr<Clone> >> Tumour = unique_ptr<vector<unique_ptr<Clone>>>( new vector<unique_ptr<Clone>> );
 
 		/* CONSTRUCTOR */
 		Clonal_Expansion(po::variables_map params) :
@@ -428,7 +428,7 @@ namespace core {
         int total_cells_to_sample = sample_proportion * Tumour->size();
         int cells_sampled_so_far = 0;
 
-		vector<unique_ptr<Clone>> *tumour_sample = new vector<unique_ptr<Clone>>;
+		unique_ptr<vector<unique_ptr<Clone>>> tumour_sample = unique_ptr<vector<unique_ptr<Clone>>>( new vector<unique_ptr<Clone>> );
 
         for(std::vector<unique_ptr<Clone>>::iterator clone_it = Tumour->begin(); clone_it != Tumour->end(); ++clone_it) {
             int clone_sample_size = r.binomial_sample((*clone_it)->Clone_Size, sample_proportion);
@@ -446,7 +446,7 @@ namespace core {
             }
         }
 
-        Tumour = tumour_sample;
+        Tumour = std::move(tumour_sample);
     }
 
 
