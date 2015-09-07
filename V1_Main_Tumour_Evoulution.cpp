@@ -418,7 +418,7 @@ namespace core {
     {
         if (sample_proportion <= 0 || 1 < sample_proportion)
         {
-            throwX( "argument to reduce_population must be a proportion, a float in (0,1]" );
+            throwX( "argument 'sample_proportion' must be a non-zero proportion, i.e. a float in (0,1]" );
         }
         else if (sample_proportion == 1)
         {
