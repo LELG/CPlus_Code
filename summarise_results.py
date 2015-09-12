@@ -12,6 +12,8 @@ AUTHOR
 from __future__ import print_function
 import argparse
 import os, sys, shutil
+import operator
+from itertools import groupby
 import csv
 import re
 
@@ -26,7 +28,7 @@ def main():
         print(err_template.format(results_dir))
         sys.exit(1)
 
-    write_summary_file(results_dir)
+    generate_summary_files(results_dir)
 
     if args.compress:
         compress_results(results_dir)
@@ -69,32 +71,58 @@ def compress_results(results_dir):
     print("compression complete")
 
 
-def write_summary_file(results_dir):
+def generate_summary_files(results_dir):
     """
     Write a summary file for the simulation results stored in results_dir.
     """
-    print("generating summary for '{}'".format(results_dir))
+    print("generating summary files for '{}'".format(results_dir))
 
     summaries = get_sim_summaries(results_dir)
+
+    summary_dir = os.path.join(results_dir, 'summary')
+
+    sim_id = get_simulation_id(results_dir)
+    tg_summ_fpath = os.path.join(summary_dir, sim_id+'_summary.csv')
+
+    write_test_group_summary_file(summaries, tg_summ_fpath)
+    print("wrote test group summary data")
+
+    write_param_set_summary_files(tg_summ_fpath, summary_dir)
+    print("wrote param set summary data")
+
+
+def write_test_group_summary_file(summaries, summary_fpath):
+    """
+    Write a summary file for an entire group of simulations.
+    """
     summ_fields = summaries[0].get_field_names()
 
-    summ_fpath = generate_summary_fpath(results_dir)
-
-    with open(summ_fpath, 'w') as summ_file:
+    with open(summary_fpath, 'w') as summ_file:
         writer = csv.DictWriter(summ_file, fieldnames=summ_fields)
         writer.writeheader()
         for summary in summaries:
             writer.writerow(summary.fields)
 
-    print("summary file generated")
 
+def write_param_set_summary_files(summary_fpath, summary_dir):
+    """
+    Write a summary file for each param set of a simulation test group.
 
-def generate_summary_fpath(results_dir):
-    """Generate a summary filepath for a results directory."""
-    simulation_id = get_simulation_id(results_dir)
-    summary_fname = '{}_summary.csv'.format(simulation_id)
-    return os.path.join(results_dir, summary_fname)
+    This just parses rows from an existing test group summary file.
+    """
+    with open(summary_fpath) as tg_summ_file:
+        tg_reader = csv.DictReader(tg_summ_file)
+        header = tg_reader.fieldnames
 
+        for ps, rows in groupby(tg_reader, operator.itemgetter('param_set')):
+            ps_fname = "ps{}_summary.csv".format(ps)
+            ps_fpath = os.path.join(summary_dir, ps_fname)
+
+            with open(ps_fpath, "w") as ps_file:
+                ps_writer = csv.DictWriter(ps_file, fieldnames=header)
+                ps_writer.writeheader()
+                for row in rows:
+                    ps_writer.writerow(row)
 
 def get_sim_summaries(results_dir):
     """
