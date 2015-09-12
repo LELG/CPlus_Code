@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 """
 A script for crawling a simulation results directory,
 generating a summary file (CSV format) from the data,
