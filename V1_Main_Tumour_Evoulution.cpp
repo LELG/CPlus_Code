@@ -56,6 +56,8 @@ namespace fs = boost::filesystem;
 #include "parser.hpp"
 namespace po = boost::program_options;
 
+#include "Random.hpp"
+
 
 /******************************* Constant Varaible Definitions *******************************/
 
@@ -378,18 +380,20 @@ namespace core {
 		//unordered_map<int, struct Clone*> Tumour;
 		/* We can create as many constructures as we want */
 
-		 vector<unique_ptr<Clone> > *Tumour = new vector<unique_ptr<Clone> >;
+		 unique_ptr<vector<unique_ptr<Clone> >> Tumour = unique_ptr<vector<unique_ptr<Clone>>>( new vector<unique_ptr<Clone>> );
 
 		/* CONSTRUCTOR */
 		Clonal_Expansion(po::variables_map params) :
 				 				Selective_Pressure			( 0.0 ),
 				 				Population_Size 			( 0   ),
 			 					FD(0),
-			 					feedback 					( 0.0 ),
-                                params                          ( params )
+                                params                          ( params ),
+								feedback 					( 0.0 )
 			 					{ 									}
 		~Clonal_Expansion() 
 		{}
+
+        void reduce_population(double sample_frac, Random r);
 			 				
 	};// end DS
 
@@ -404,115 +408,48 @@ namespace core {
 		return unique_ptr<Clonal_Expansion>( new Clonal_Expansion(params) );
 	}// end function
 
-	class Random 
-	{
-		public:
 
-    	Random() = default;
-    	Random(std::mt19937::result_type seed) : eng(seed) {}
-    	unsigned int Recovery_After_Replication();
-    	unsigned int G1();
-    	unsigned int S();
-    	unsigned int G2();
-    	unsigned int Poisson();
-    	double Z();
-    	double Binomial_dying(unsigned int Clone_Size, double Death_Rate);
-    	double Binomial_newborn(unsigned int Clone_Size, double Adjusted_Proliferation_Rate);
-    	unsigned int Binomial_Mutants(unsigned int NewBorn_Size, double Mutation_Rate);
-    	//unsigned int* Mitosis_Multinomial(unsigned int Clone_Size);
-    	//unsigned int Uniform_Mutation_Division_Memebers(unsigned int Clone_Size);
-    	double Uniform_Mutation_Rate(double mu_rate);
-    	double Update_Proliferation_Rate(double Proliferation_Rate);
-    	double Uniform_Mutation_Rate_2(double Parent_mu_rate);
+    /*
+     * Reduce tumour population (in-place) by a fixed percentage.
+     * Randomly select that percentage of cells from the population,
+     * and discard the remainder.
+     */
+    void Clonal_Expansion::reduce_population(double sample_proportion, Random r)
+    {
+        if (sample_proportion <= 0 || 1 < sample_proportion)
+        {
+            throwX( "argument 'sample_proportion' must be a non-zero proportion, i.e. a float in (0,1]" );
+        }
+        else if (sample_proportion == 1)
+        {
+            return;
+        }
 
+        int total_cells_to_sample = (int)(sample_proportion * Population_Size);
+        int cells_sampled_so_far = 0;
 
-		private:        
-    	std::mt19937 eng{std::random_device{}()};
-    	
+		unique_ptr<vector<unique_ptr<Clone>>> tumour_sample = unique_ptr<vector<unique_ptr<Clone>>>( new vector<unique_ptr<Clone>> );
 
-  
- 		
-	};
+        for(std::vector<unique_ptr<Clone>>::iterator clone_it = Tumour->begin(); clone_it != Tumour->end(); ++clone_it) {
+            int clone_sample_size = r.binomial_sample((*clone_it)->Clone_Size, sample_proportion);
 
+            if (clone_sample_size > 0)
+            {
+                (*clone_it)->Clone_Size = clone_sample_size;
+                tumour_sample->push_back(std::move(*clone_it));
+                cells_sampled_so_far += clone_sample_size;
+            }
 
-	unsigned int Random::Recovery_After_Replication()
-	{
-    	return uniform_int_distribution<unsigned int>{12, 15}(eng);
-	}
+            if (cells_sampled_so_far >= total_cells_to_sample)
+            {
+                break;
+            }
+        }
 
-	unsigned int Random::G1()
-	{
-		return uniform_int_distribution<unsigned int>{12, 15}(eng);
-	}
+        Tumour = std::move(tumour_sample);
+        Population_Size = cells_sampled_so_far;
+    }
 
-	unsigned int Random::S()
-	{
-		return uniform_int_distribution<unsigned int>{5, 10}(eng);
-	}
-
-	unsigned int Random::G2()
-	{
-		return uniform_int_distribution<unsigned int>{3, 5}(eng);
-	}
-
-	unsigned int Random::Poisson()
-	{
-		return poisson_distribution<unsigned int>{1}(eng);
-	}
-
-	double Random::Z()
-	{
-		return normal_distribution<double>{0.0,1.0}(eng);
-	}
-
-	double Random::Binomial_dying(unsigned int Clone_Size, double Death_Rate)
-	{
-		return binomial_distribution<unsigned int>{Clone_Size, Death_Rate}(eng);
-	}
-	
-	double Random::Binomial_newborn(unsigned int Clone_Size, double Adjusted_Proliferation_Rate)
-	{
-		return binomial_distribution<unsigned int>{Clone_Size, Adjusted_Proliferation_Rate }(eng);
-	}
-
-	unsigned int Random::Binomial_Mutants(unsigned int NewBorn_Size, double Mutation_Rate)
-	{
-		return binomial_distribution<unsigned int>{NewBorn_Size, Mutation_Rate}(eng);
-	}
-
-	double Random::Uniform_Mutation_Rate(double mu_rate)
-	{
-		return uniform_real_distribution<double>{mu_rate/2.0, mu_rate*2.0}(eng);
-	}
-	double Random::Update_Proliferation_Rate(double Parent_Proliferation_Rate)
-	{
-		double U = normal_distribution<double>{Parent_Proliferation_Rate, 0.001 }(eng);
-		if(U > 1.0)
-		{
-			U = 1.0;
-		}
-		if (U < 0.0)
-		{
-			U = 0.0;
-		}
-		
-		return U;
-	}
-
-	double Random::Uniform_Mutation_Rate_2(double Parent_mu_rate)
-	{
-
-		double U = normal_distribution<double>{Parent_mu_rate, mut_rate }(eng);
-		if(U > 1.0)
-		{
-			U = 1.0;
-		}
-		if (U < 0.0)
-		{
-			U = 0.0;
-		}
-		return U;
-	}
 
 	Random r;
 
@@ -822,7 +759,7 @@ namespace core {
 			CE -> Tumour -> back() -> Generation_ID_Counter = 0; 
 
 
-			CE -> Tumour -> back() -> Mutation_Rate = r.Uniform_Mutation_Rate_2(mr);
+			CE -> Tumour -> back() -> Mutation_Rate = r.Uniform_Mutation_Rate_2(mr, mut_rate);
 
 			
 			CE -> Tumour -> back() -> P_Expansion[1] =  r.Update_Proliferation_Rate(pr);
@@ -1113,7 +1050,7 @@ namespace core {
         header = "id\tClone_size\tProliferation_Rate\tMutation_Rate\tExtinct\tG_ID\n";
         stats_fstream << header;
 
-        for(int i=0; i < CE->Tumour->size(); i++)
+        for(unsigned int i=0; i < CE->Tumour->size(); i++)
         {
             std::unique_ptr<Clone>& curr_clone = CE->Tumour->at(i);
 
