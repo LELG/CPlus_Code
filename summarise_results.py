@@ -16,6 +16,7 @@ import operator
 from itertools import groupby
 import csv
 import re
+import jinja2
 
 
 def main():
@@ -90,6 +91,9 @@ def generate_summary_files(results_dir):
     write_param_set_summary_files(tg_summ_fpath, summary_dir)
     print("wrote param set summary data")
 
+    generate_summary_report(summary_dir)
+    print("generated summary report")
+
 
 def write_test_group_summary_file(summaries, summary_fpath):
     """
@@ -123,6 +127,36 @@ def write_param_set_summary_files(summary_fpath, summary_dir):
                 ps_writer.writeheader()
                 for row in rows:
                     ps_writer.writerow(row)
+
+
+def generate_summary_report(summary_dir):
+    """
+    Generate a HTML report summarising per-param set results from a test group.
+    """
+    TEMPLATE = """\
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <title>{{ report_title }}</title>
+    </head>
+    <body>
+        <h1>{{ report_title }}</h1>
+    </body>
+    </html>
+    """
+    report_template = jinja2.Template(TEMPLATE)
+
+    summary_dir = summary_dir.rstrip('/')
+    results_dir = os.path.split(summary_dir)[0]
+    sim_id = get_simulation_id(results_dir)
+
+    report_title = "Summary Report for '{}'".format(sim_id)
+
+    report_fpath = os.path.join(summary_dir, sim_id+'_report.html')
+    with open(report_fpath, 'w') as report_file:
+        report = report_template.render(report_title=report_title)
+        report_file.write(report)
+
 
 def get_sim_summaries(results_dir):
     """
