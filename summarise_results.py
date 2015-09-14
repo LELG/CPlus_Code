@@ -17,6 +17,9 @@ from itertools import groupby
 import csv
 import re
 import jinja2
+import pandas as pd
+
+import plotting
 
 
 def main():
@@ -29,7 +32,7 @@ def main():
         print(err_template.format(results_dir))
         sys.exit(1)
 
-    generate_summary_files(results_dir)
+    summarise_sim_group(results_dir)
 
     if args.compress:
         compress_results(results_dir)
@@ -72,30 +75,77 @@ def compress_results(results_dir):
     print("compression complete")
 
 
-def generate_summary_files(results_dir):
+def summarise_sim_group(results_dir):
     """
     Write a summary file for the simulation results stored in results_dir.
     """
     print("generating summary files for '{}'".format(results_dir))
 
-    summaries = get_sim_summaries(results_dir)
-
     summary_dir = os.path.join(results_dir, 'summary')
 
-    sim_id = get_simulation_id(results_dir)
-    tg_summ_fpath = os.path.join(summary_dir, sim_id+'_summary.csv')
+    # assume that all subdirectories of main results dir
+    # are directories for individual param sets
+    param_set_dirs = get_subdirs(results_dir)
 
-    write_test_group_summary_file(summaries, tg_summ_fpath)
-    print("wrote test group summary data")
+    if not os.path.isdir(summary_dir):
+        os.mkdir(summary_dir)
 
-    write_param_set_summary_files(tg_summ_fpath, summary_dir)
-    print("wrote param set summary data")
+    for ps_dir in param_set_dirs:
+        summarise_param_set(ps_dir, summary_dir)
 
-    generate_summary_report(summary_dir)
-    print("generated summary report")
+    # sim_id = get_simulation_id(results_dir)
+    # tg_summ_fpath = os.path.join(summary_dir, sim_id+'_summary.csv')
+
+    # write_test_group_summary_file(summaries, tg_summ_fpath)
+    # print("wrote test group summary data")
+
+    #write_param_set_summary_files(tg_summ_fpath, summary_dir)
+    #print("wrote param set summary data")
+
+    #generate_summary_report(summary_dir)
+    #print("generated summary report")
 
 
-def write_test_group_summary_file(summaries, summary_fpath):
+def summarise_param_set(ps_dir, summary_dir):
+    """
+    Summarise the param set stored in ps_dir, writing results to summary_dir.
+    """
+    ps_id = get_param_set(ps_dir)
+
+    growth_data = get_growth_data(ps_dir)
+    growth_fig = plotting.plot_growth_curves(growth_data)
+    fpath = os.path.join(summary_dir, ps_id+'_growthcurves.png')
+    growth_fig.savefig(fpath)
+
+    summaries = get_param_set_summaries(ps_dir)
+
+    summary_fpath = os.path.join(summary_dir, ps_id+'_summary.csv')
+    write_summaries_to_file(summaries, summary_fpath)
+
+    #generate_summary_plots(summaries, summary_dir)
+    #generate_html_report(ps_id, summary_dir)
+
+
+def get_growth_data(ps_dir):
+    """
+    Store growth curve data from a set of simulations to a pandas.DataFrame.
+    """
+    # assume that all subdirectories of
+    # param set dir are directories for individual runs
+    run_dirs = get_subdirs(ps_dir)
+
+    all_data = []
+    for run_dir in run_dirs:
+        growth_fpath = os.path.join(run_dir, 'tumour_size.txt')
+        df = pd.read_csv(growth_fpath, sep='\t', header=None)
+        # actual growth data is in first column
+        s = df[0]
+        all_data.append(s)
+
+    return pd.concat(all_data, axis=1)
+
+
+def write_summaries_to_file(summaries, summary_fpath):
     """
     Write a summary file for an entire group of simulations.
     """
