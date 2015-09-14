@@ -1,4 +1,3 @@
-#!/usr/bin/env python2.7
 """
 Define various plotting functions for summarising simulation results.
 
@@ -38,3 +37,11 @@ def histogram_boxplot(data, title):
     fig.suptitle(title, fontdict=title_font);
 
     return fig
+
+
+def plot_growth_curves(df):
+    """
+    Plot a selection of growth curves, stored in a pandas.DataFrame.
+    """
+    df.plot()
+    return plt.gcf()
