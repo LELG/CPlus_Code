@@ -49,7 +49,7 @@ runpadding=${#runs_per_ps}
 run_number=1
 while [ $run_number -le $runs_per_ps ]; do
   # note need to 'pad' run directories for proper ordering (001, 002 ... etc)
-  run_dir=$(printf "%s/%0*d" $param_set_dir $runpadding $run_number)
+  run_dir=$(printf "%s/run%0*d" $param_set_dir $runpadding $run_number)
 
   if [ ! -d $run_dir ]; then
     mkdir -p $run_dir

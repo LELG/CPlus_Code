@@ -170,7 +170,7 @@ vals=($(echo "$line"))
 unset IFS
 
 # pad directories to ensure proper ordering
-param_set_dir=$(printf "%s/%0*d" $test_group_dir $param_set_padding $param_set)
+param_set_dir=$(printf "%s/ps%0*d" $test_group_dir $param_set_padding $param_set)
 
 if [ ! -d $param_set_dir ]; then
   printf "==> Creating param set directory: "$param_set_dir" ...\r"

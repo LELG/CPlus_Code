@@ -68,7 +68,7 @@ def compress_results(results_dir):
     shutil.make_archive(arch_name, 'gztar', root_dir=results_dir)
 
     # delete uncompressed subdirectories
-    param_set_dirs = get_subdirs(results_dir)
+    param_set_dirs = get_param_set_subdirs(results_dir)
     for ps_dir in param_set_dirs:
         shutil.rmtree(ps_dir)
 
@@ -79,16 +79,15 @@ def summarise_sim_group(results_dir):
     """
     Write a summary file for the simulation results stored in results_dir.
     """
+
     print("generating summary files for '{}'".format(results_dir))
 
     summary_dir = os.path.join(results_dir, 'summary')
 
-    # assume that all subdirectories of main results dir
-    # are directories for individual param sets
-    param_set_dirs = get_subdirs(results_dir)
-
     if not os.path.isdir(summary_dir):
         os.mkdir(summary_dir)
+
+    param_set_dirs = get_param_set_subdirs(results_dir)
 
     for ps_dir in param_set_dirs:
         summarise_param_set(ps_dir, summary_dir)
@@ -130,9 +129,7 @@ def get_growth_data(ps_dir):
     """
     Store growth curve data from a set of simulations to a pandas.DataFrame.
     """
-    # assume that all subdirectories of
-    # param set dir are directories for individual runs
-    run_dirs = get_subdirs(ps_dir)
+    run_dirs = get_run_subdirs(ps_dir)
 
     all_data = []
     for run_dir in run_dirs:
@@ -217,9 +214,7 @@ def get_sim_summaries(results_dir):
     """
     summaries = []
 
-    # assume that all subdirectories of main results dir
-    # are directories for individual param sets
-    param_set_dirs = get_subdirs(results_dir)
+    param_set_dirs = get_param_set_subdirs(results_dir)
 
     for ps_dir in param_set_dirs:
         summaries += get_param_set_summaries(ps_dir)
@@ -233,9 +228,7 @@ def get_param_set_summaries(ps_dir):
     """
     summaries = []
 
-    # as above, assume that all subdirectories of
-    # param set dir are directories for individual runs
-    run_dirs = get_subdirs(ps_dir)
+    run_dirs = get_run_subdirs(ps_dir)
 
     ps_conf_fpath = get_conf_fpath(ps_dir)
 
@@ -409,7 +402,12 @@ def get_param_set(ps_dir):
     """
     Return an ID string for a simulation parameter set.
     """
-    return os.path.split(ps_dir)[1]
+    ps_id = os.path.split(ps_dir)[1]
+
+    if ps_id.startswith('ps'):
+        ps_id = ps_id[2:]
+
+    return ps_id
 
 
 def get_run_number(run_dir):
@@ -417,16 +415,43 @@ def get_run_number(run_dir):
     Return the number of the replicate run (as a string).
     """
     return os.path.split(run_dir)[1]
+    run_number = os.path.split(run_dir)[1]
+
+    if run_number.startswith('run'):
+        run_number = run_number[3:]
+
+    return run_number
 
 
-def get_subdirs(dirpath):
+def get_param_set_subdirs(dirpath):
+    """
+    Get a list of param set subdirectories of a test group directory.
+    """
+    patt = '^' + dirpath + r'/ps'
+    return get_subdirs(dirpath, patt)
+
+
+def get_run_subdirs(dirpath):
+    """
+    Get a list of replicate run subdirectories of a param set directory.
+    """
+    patt = '^' + dirpath + r'/run'
+    return get_subdirs(dirpath, patt)
+
+
+def get_subdirs(dirpath, pattern=None):
     """
     Get a list of subdirectories of a given directory.
     """
-    return [os.path.join(dirpath, name)
-            for name
-            in os.listdir(dirpath)
-            if os.path.isdir(os.path.join(dirpath, name))]
+    all_subdirs = [os.path.join(dirpath, name)
+                   for name in os.listdir(dirpath)
+                   if os.path.isdir(os.path.join(dirpath, name))]
+
+    if pattern is not None:
+        matching_subdirs = [d for d in all_subdirs if re.search(pattern, d)]
+        return matching_subdirs
+    else:
+        return all_subdirs
 
 
 if __name__ == "__main__":
