@@ -348,16 +348,26 @@ class RunSummary(object):
         """
         with open(stats_fpath) as stats_file:
             reader = csv.DictReader(stats_file, delimiter=delim)
+
+            tumour_size = 0
+            dominant_clone_size = 0
             agg_prolif = 0.0
             agg_mut = 0.0
             nclones = 0
+
             for row in reader:
+                clone_size = int(row['Clone_size'])
+                tumour_size += clone_size
+                if clone_size > dominant_clone_size:
+                    dominant_clone_size = clone_size
+
                 agg_prolif += float(row['Proliferation_Rate'])
                 agg_mut += float(row['Mutation_Rate'])
                 nclones += 1
 
         self.add_result_field('prolif_final_avg', agg_prolif/nclones)
         self.add_result_field('mut_final_avg', agg_mut/nclones)
+        self.add_result_field('dom_clone_proportion', float(dominant_clone_size)/tumour_size)
 
 
 def write_summaries_to_file(summaries, summary_fpath):
@@ -377,7 +387,7 @@ def generate_html_report(ps_id, summaries, summary_dir):
     """
     Generate a HTML report summarising per-param set results from a test group.
     """
-    fields_to_summarise = ['pop_size', 'num_clones', 'prolif_final_avg', 'mut_final_avg']
+    fields_to_summarise = ['num_clones', 'prolif_final_avg', 'mut_final_avg', 'dom_clone_proportion']
 
     all_params = summaries[0].param_fields.copy()
     all_params.pop('param_set')
