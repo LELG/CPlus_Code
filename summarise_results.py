@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 """
 A script for crawling a simulation results directory,
-generating summary files and plots from the data,
+generating summary files, plots and reports from the data,
 and, optionally, compressing the raw results.
 
 AUTHOR
@@ -18,7 +18,7 @@ import jinja2
 import pandas as pd
 from collections import defaultdict
 
-import plotting
+import summary_plotting
 
 
 def main():
@@ -107,14 +107,13 @@ def summarise_sim_group(results_dir):
 
     param_set_dirs = get_param_set_subdirs(results_dir)
 
+    n_psets = len(param_set_dirs)
+    curr = 0
+
     for ps_dir in param_set_dirs:
+        curr += 1
+        print("summarising ps {} / {}".format(curr, n_psets))
         summarise_param_set(ps_dir, summary_dir)
-
-    # sim_id = get_simulation_id(results_dir)
-    # tg_summ_fpath = os.path.join(summary_dir, sim_id+'_summary.csv')
-
-    # write_test_group_summary_file(summaries, tg_summ_fpath)
-    # print("wrote test group summary data")
 
 
 def summarise_param_set(ps_dir, summary_dir):
@@ -123,17 +122,20 @@ def summarise_param_set(ps_dir, summary_dir):
     """
     ps_id = get_param_set(ps_dir)
 
+    print("plotting growth curves")
     growth_data = get_growth_data(ps_dir)
 
-    growth_plot = plotting.plot_growth_curves(growth_data)
+    growth_plot = summary_plotting.plot_growth_curves(growth_data)
     plot_fpath = os.path.join(summary_dir, 'ps'+ps_id+'_growthcurves.png')
     growth_plot.savefig(plot_fpath)
 
     summaries = get_param_set_summaries(ps_dir)
 
+    print("writing summaries to CSV file")
     summary_fpath = os.path.join(summary_dir, 'ps'+ps_id+'_summary.csv')
     write_summaries_to_file(summaries, summary_fpath)
 
+    print("generating html report")
     generate_html_report(ps_id, summaries, summary_dir)
 
 
@@ -151,127 +153,10 @@ def get_growth_data(ps_dir):
         s = df[0]
         all_data.append(s)
 
-    return pd.concat(all_data, axis=1)
+    growth_data = pd.concat(all_data, axis=1)
+    growth_data.columns = ['run'+str(n) for n in range(1, len(run_dirs)+1)]
 
-
-def write_summaries_to_file(summaries, summary_fpath):
-    """
-    Write a summary file for an entire group of simulations.
-    """
-    summ_fields = summaries[0].get_field_names()
-
-    with open(summary_fpath, 'w') as summ_file:
-        writer = csv.DictWriter(summ_file, fieldnames=summ_fields)
-        writer.writeheader()
-        for summary in summaries:
-            writer.writerow(summary.fields)
-
-
-#  def write_param_set_summary_files(summary_fpath, summary_dir):
-    #  """
-    #  Write a summary file for each param set of a simulation test group.
-
-    #  This just parses rows from an existing test group summary file.
-    #  """
-    #  with open(summary_fpath) as tg_summ_file:
-        #  tg_reader = csv.DictReader(tg_summ_file)
-        #  header = tg_reader.fieldnames
-
-        #  for ps, rows in groupby(tg_reader, operator.itemgetter('param_set')):
-            #  ps_fname = "ps{}_summary.csv".format(ps)
-            #  ps_fpath = os.path.join(summary_dir, ps_fname)
-
-            #  with open(ps_fpath, "w") as ps_file:
-                #  ps_writer = csv.DictWriter(ps_file, fieldnames=header)
-                #  ps_writer.writeheader()
-                #  for row in rows:
-                    #  ps_writer.writerow(row)
-
-
-def generate_summary_plots(summaries, fields_to_plot, dest_dir):
-    """
-    Generate plots summarising results for a set of replicate runs.
-    """
-    field_data = defaultdict(list)
-
-    for field_name in fields_to_plot:
-        for summary in summaries:
-            field_data[field_name].append(summary.fields[field_name])
-
-    for field_name in field_data:
-        summ_plot = plotting.histogram_boxplot(pd.Series(field_data[field_name]), '{} Distribution'.format(field_name))
-        dest_path = os.path.join(dest_dir, 'fig_{}.png'.format(field_name))
-        summ_plot.savefig(dest_path)
-
-
-def generate_html_report(ps_id, summaries, summary_dir):
-    """
-    Generate a HTML report summarising per-param set results from a test group.
-    """
-    fields_to_summarise = ['pop_size', 'num_clones']
-
-    field_data = defaultdict(list)
-
-    for field_name in fields_to_summarise:
-        for summary in summaries:
-            # assume that all fields we want to summarise will be numeric
-            field_data[field_name].append(float(summary.fields[field_name]))
-
-    summary_output = []
-
-    for field_name in field_data:
-        data = pd.Series(field_data[field_name])
-        plot_fpath = os.path.join(summary_dir, 'ps{}_fig_{}.png'.format(ps_id, field_name))
-        plot = plotting.histogram_boxplot(data, '{} summary (ps{})'.format(field_name, ps_id))
-        plot.savefig(plot_fpath)
-        summary_info = {'field_name': field_name,
-                        'plot_fpath': os.path.split(plot_fpath)[1],
-                        'summary_data': pd.DataFrame(data.describe()).to_html()}
-        summary_output.append(summary_info)
-
-    TEMPLATE = """\
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <title>{{ report_title }}</title>
-    </head>
-    <body>
-        <h1>{{ report_title }}</h1>
-
-        {% for summary in summary_dicts %}
-            <h2>{{ summary['field_name'] }}</h2>
-            <img src="{{ summary['plot_fpath'] }}" alt="summary plot for {{ summary['field_name'] }}">
-            <p>{{ summary['summary_data'] }}</p>
-
-        {% endfor %}
-    </body>
-    </html>
-    """
-    report_template = jinja2.Template(TEMPLATE)
-
-    report_title = "Summary Report for Param Set {}".format(ps_id)
-
-    report_fpath = os.path.join(summary_dir, 'ps{}_report.html'.format(ps_id))
-    with open(report_fpath, 'w') as report_file:
-        report = report_template.render(report_title=report_title, summary_dicts=summary_output)
-        report_file.write(report)
-
-
-def get_sim_summaries(results_dir):
-    """
-    Return a list of results summaries, one for each run in the test group.
-
-    Walk the results directory, populating a RunSummary object
-    for each simulation run. Return a list of all these summaries.
-    """
-    summaries = []
-
-    param_set_dirs = get_param_set_subdirs(results_dir)
-
-    for ps_dir in param_set_dirs:
-        summaries += get_param_set_summaries(ps_dir)
-
-    return summaries
+    return growth_data
 
 
 def get_param_set_summaries(ps_dir):
@@ -284,7 +169,13 @@ def get_param_set_summaries(ps_dir):
 
     ps_conf_fpath = get_conf_fpath(ps_dir)
 
+    nruns = len(run_dirs)
+    curr = 0
+
     for run_dir in run_dirs:
+        curr += 1
+        print("getting summary for run {} / {}".format(curr, nruns))
+
         run_summary = generate_run_summary(run_dir)
         run_summary.add_field('param_set', get_param_set(ps_dir))
         run_summary.add_fields_from_conf_file(ps_conf_fpath)
@@ -376,7 +267,6 @@ class RunSummary(object):
                            'prob_inc_mut', 'prob_dec_mut',
                            'driver_quantile', 'killer_quantile',
                            'beneficial_quantile', 'deleterious_quantile']
-        num_stored = 0
 
         with open(conf_fpath) as conf_file:
             pattern = r"(?P<param>[^\s]+)[\s]*=[\s]*(?P<val>[^\s]+)"
@@ -386,10 +276,15 @@ class RunSummary(object):
                 line_param = line_dict['param']
                 if line_param in params_to_store:
                     self.add_field(line_param, line_dict['val'])
-                    num_stored += 1
 
-        if num_stored != len(params_to_store):
-            print("warning: config file missing some expected parameters")
+        # for param in params_to_store:
+            # if param not in self.fields:
+                # print("warning: config file missing expected parameter '{}'".format(param))
+
+        # rename initial prolif and mutation rates
+        self.add_field('prolif_init', self.fields.pop('pro'))
+        self.add_field('mut_init', self.fields.pop('mut'))
+
 
     def add_fields_from_run_dir(self, run_dir):
         """
@@ -406,13 +301,79 @@ class RunSummary(object):
 
         This assumes that every field in the CSV file should
         be stored to the summary. It will also only take values
-        from the first row of the file; any later rows will be ignored.
+        from the first row of the file. Any later rows will be ignored!
         """
         with open(fpath) as results_f:
             reader = csv.DictReader(results_f, delimiter=delim)
             row = next(reader)
             for field, val in row.items():
                 self.add_field(field, val)
+
+
+def write_summaries_to_file(summaries, summary_fpath):
+    """
+    Write a summary file for an entire group of simulations.
+    """
+    summ_fields = summaries[0].get_field_names()
+
+    with open(summary_fpath, 'w') as summ_file:
+        writer = csv.DictWriter(summ_file, fieldnames=summ_fields)
+        writer.writeheader()
+        for summary in summaries:
+            writer.writerow(summary.fields)
+
+
+def generate_html_report(ps_id, summaries, summary_dir):
+    """
+    Generate a HTML report summarising per-param set results from a test group.
+    """
+    fields_to_summarise = ['pop_size', 'num_clones', 'prolif_final_avg', 'mut_final_avg']
+
+    field_data = defaultdict(list)
+
+    for field_name in fields_to_summarise:
+        for summary in summaries:
+            # assume that all fields we want to summarise will be numeric
+            field_data[field_name].append(float(summary.fields[field_name]))
+
+    summary_output = []
+
+    for field_name in field_data:
+        data = pd.Series(field_data[field_name])
+        plot_fpath = os.path.join(summary_dir, 'ps{}_fig_{}.png'.format(ps_id, field_name))
+        plot = summary_plotting.histogram_boxplot(data, '{} summary (ps{})'.format(field_name, ps_id))
+        plot.savefig(plot_fpath)
+        summary_info = {'field_name': field_name,
+                        'plot_fpath': os.path.split(plot_fpath)[1],
+                        'summary_data': pd.DataFrame(data.describe()).to_html()}
+        summary_output.append(summary_info)
+
+    TEMPLATE = """\
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <title>{{ report_title }}</title>
+    </head>
+    <body>
+        <h1>{{ report_title }}</h1>
+
+        {% for summary in summary_dicts %}
+            <h2>{{ summary['field_name'] }}</h2>
+            <img src="{{ summary['plot_fpath'] }}" alt="summary plot for {{ summary['field_name'] }}">
+            <p>{{ summary['summary_data'] }}</p>
+
+        {% endfor %}
+    </body>
+    </html>
+    """
+    report_template = jinja2.Template(TEMPLATE)
+
+    report_title = "Summary Report for Param Set {}".format(ps_id)
+
+    report_fpath = os.path.join(summary_dir, 'ps{}_report.html'.format(ps_id))
+    with open(report_fpath, 'w') as report_file:
+        report = report_template.render(report_title=report_title, summary_dicts=summary_output)
+        report_file.write(report)
 
 
 def get_conf_fpath(sim_dir):
@@ -466,7 +427,6 @@ def get_run_number(run_dir):
     """
     Return the number of the replicate run (as a string).
     """
-    return os.path.split(run_dir)[1]
     run_number = os.path.split(run_dir)[1]
 
     if run_number.startswith('run'):
