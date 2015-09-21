@@ -295,6 +295,11 @@ class RunSummary(object):
             raise IOError("cannot find results for run_dir: " + run_dir)
         self.add_fields_from_csv_file(results_fpath, delim='\t')
 
+        stats_fpath = os.path.join(run_dir, 'stats.txt')
+        if not os.path.isfile(stats_fpath):
+            raise IOError("cannot find clone stats for run_dir: " + run_dir)
+        self.add_fields_from_clone_stats(stats_fpath, delim='\t')
+
     def add_fields_from_csv_file(self, fpath, delim=','):
         """
         Add all fields in a csv file to the run summary.
@@ -308,6 +313,23 @@ class RunSummary(object):
             row = next(reader)
             for field, val in row.items():
                 self.add_field(field, val)
+
+    def add_fields_from_clone_stats(self, stats_fpath, delim='\t'):
+        """
+        Add summary fields computed from the clone statistics file.
+        """
+        with open(stats_fpath) as stats_file:
+            reader = csv.DictReader(stats_file, delimiter=delim)
+            agg_prolif = 0.0
+            agg_mut = 0.0
+            nclones = 0
+            for row in reader:
+                agg_prolif += float(row['Proliferation_Rate'])
+                agg_mut += float(row['Mutation_Rate'])
+                nclones += 1
+
+        self.add_field('prolif_final_avg', agg_prolif/nclones)
+        self.add_field('mut_final_avg', agg_mut/nclones)
 
 
 def write_summaries_to_file(summaries, summary_fpath):
