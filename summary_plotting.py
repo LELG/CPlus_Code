@@ -23,7 +23,7 @@ def histogram_boxplot(data, title):
     Returns a matplotlib Figure.
     """
     fig = plt.figure()
-    gs = gridspec.GridSpec(2, 1, height_ratios=[3,1])
+    gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
     ax0 = plt.subplot(gs[0])
     ax1 = plt.subplot(gs[1])
 
@@ -34,7 +34,7 @@ def histogram_boxplot(data, title):
     ax1.set_yticklabels([])
 
     title_font = {'weight': 'bold', 'size': 16}
-    fig.suptitle(title, fontdict=title_font);
+    fig.suptitle(title, fontdict=title_font)
 
     return fig
 
@@ -43,5 +43,11 @@ def plot_growth_curves(df):
     """
     Plot a selection of growth curves, stored in a pandas.DataFrame.
     """
-    df.plot()
-    return plt.gcf()
+    fig = plt.figure()
+    ax0 = fig.add_subplot(111)
+    df.plot(ax=ax0)
+
+    title_font = {'weight': 'bold', 'size': 16}
+    fig.suptitle("Population Size vs. Time", fontdict=title_font)
+
+    return fig
