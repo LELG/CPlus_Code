@@ -11,9 +11,7 @@ AUTHOR
 """
 from __future__ import print_function
 import argparse
-import os, sys, shutil
-#import operator
-#from itertools import groupby
+import os, sys, shutil, tarfile
 import csv
 import re
 import jinja2
@@ -54,7 +52,6 @@ def parse_arguments():
     return parser.parse_args()
 
 
-# TODO FIX COMPRESSION - currently broken
 def compress_results(results_dir):
     """
     Compress entire results directory into an archive,
@@ -63,18 +60,37 @@ def compress_results(results_dir):
     Note that on decompression, any files in the main results
     directory (e.g. summary file, conf file) will be duplicated.
     """
-    print("compressing results in  '{}'".format(results_dir))
+    print("compressing results in '{}'".format(results_dir))
 
-    sim_id = get_simulation_id(results_dir)
-    arch_name = os.path.join(results_dir, sim_id+'_results')
-    shutil.make_archive(arch_name, 'gztar', root_dir=results_dir)
+    cwd = os.getcwd()
 
-    # delete uncompressed subdirectories
-    param_set_dirs = get_param_set_subdirs(results_dir)
-    for ps_dir in param_set_dirs:
-        shutil.rmtree(ps_dir)
+    try:
+        os.chdir(results_dir)
+        arch_name = 'raw_results.tar.gz'
 
-    print("compression complete")
+        param_set_dirs = get_param_set_subdirs(os.getcwd())
+
+        arch = tarfile.open(arch_name, 'w:gz')
+
+        for ps_dir in param_set_dirs:
+            # get relative directory
+            ps_dir = os.path.split(ps_dir)[1]
+
+            print("adding dir '{}' to archive ...".format(ps_dir), end='\r')
+            sys.stdout.flush()
+            arch.add(ps_dir)
+            print("adding dir '{}' to archive ... done".format(ps_dir))
+
+            print("deleting uncompressed dir '{}' ...".format(ps_dir), end='\r')
+            sys.stdout.flush()
+            shutil.rmtree(ps_dir)
+            print("deleting uncompressed dir '{}' ... done".format(ps_dir))
+
+        arch.close()
+        print("compression complete")
+
+    finally:
+        os.chdir(cwd)
 
 
 def summarise_sim_group(results_dir):
