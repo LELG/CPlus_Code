@@ -125,14 +125,18 @@ def summarise_param_set(ps_dir, summary_dir):
     print("plotting growth curves")
     growth_data = get_growth_data(ps_dir)
 
+    fig_dir = os.path.join(summary_dir, 'fig')
+    if not os.path.isdir(fig_dir):
+        os.mkdir(fig_dir)
+
     growth_plot = summary_plotting.plot_growth_curves(growth_data)
-    plot_fpath = os.path.join(summary_dir, 'ps'+ps_id+'_growthcurves.png')
+    plot_fpath = os.path.join(fig_dir, 'ps{}_growthcurves.png'.format(ps_id))
     growth_plot.savefig(plot_fpath)
 
     summaries = get_param_set_summaries(ps_dir)
 
     print("writing summaries to CSV file")
-    summary_fpath = os.path.join(summary_dir, 'ps'+ps_id+'_summary.csv')
+    summary_fpath = os.path.join(summary_dir, 'ps{}_summary.csv'.format(ps_id))
     write_summaries_to_file(summaries, summary_fpath)
 
     print("generating html report")
@@ -362,11 +366,11 @@ def generate_html_report(ps_id, summaries, summary_dir):
 
     for field_name in field_data:
         data = pd.Series(field_data[field_name])
-        plot_fpath = os.path.join(summary_dir, 'ps{}_fig_{}.png'.format(ps_id, field_name))
+        plot_fpath = os.path.join(summary_dir, 'fig', 'ps{}_{}.png'.format(ps_id, field_name))
         plot = summary_plotting.histogram_boxplot(data, '{} summary (ps{})'.format(field_name, ps_id))
         plot.savefig(plot_fpath)
         summary_info = {'field_name': field_name,
-                        'plot_fpath': os.path.split(plot_fpath)[1],
+                        'plot_fpath': os.path.join('fig',os.path.split(plot_fpath)[1]),
                         'summary_data': pd.DataFrame(data.describe()).to_html()}
         summary_output.append(summary_info)
 
@@ -378,6 +382,9 @@ def generate_html_report(ps_id, summaries, summary_dir):
     </head>
     <body>
         <h1>{{ report_title }}</h1>
+
+        <h2>Growth Curves</h2>
+        <img src="{{ gc_fig }}" alt="growth curves">
 
         {% for summary in summary_dicts %}
             <h2>{{ summary['field_name'] }}</h2>
@@ -393,8 +400,9 @@ def generate_html_report(ps_id, summaries, summary_dir):
     report_title = "Summary Report for Param Set {}".format(ps_id)
 
     report_fpath = os.path.join(summary_dir, 'ps{}_report.html'.format(ps_id))
+    gc_fpath = os.path.join('fig', 'ps{}_growthcurves.png'.format(ps_id))
     with open(report_fpath, 'w') as report_file:
-        report = report_template.render(report_title=report_title, summary_dicts=summary_output)
+        report = report_template.render(report_title=report_title, gc_fig=gc_fpath, summary_dicts=summary_output)
         report_file.write(report)
 
 
