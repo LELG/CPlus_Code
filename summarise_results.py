@@ -181,7 +181,7 @@ def get_param_set_summaries(ps_dir):
         print("getting summary for run {} / {}".format(curr, nruns))
 
         run_summary = generate_run_summary(run_dir)
-        run_summary.add_field('param_set', get_param_set(ps_dir))
+        run_summary.add_param_field('param_set', get_param_set(ps_dir))
         run_summary.add_fields_from_conf_file(ps_conf_fpath)
         summaries.append(run_summary)
 
@@ -193,7 +193,7 @@ def generate_run_summary(run_dir):
     Create and populate a RunSummary object for an individual simulation run.
     """
     summary = RunSummary()
-    summary.add_field('run_number', get_run_number(run_dir))
+    summary.add_param_field('run_number', get_run_number(run_dir))
     summary.add_fields_from_run_dir(run_dir)
     return summary
 
@@ -212,24 +212,49 @@ class RunSummary(object):
     method calls to this class.
     """
     def __init__(self):
-        self.fields = {}
+        #self.fields = {}
+        self.param_fields = {}
+        self.result_fields = {}
 
     @property
-    def fields(self):
-        return self.__fields
+    def param_fields(self):
+        return self.__param_fields
 
-    @fields.setter
-    def fields(self, val):
-        if not hasattr(self, '__fields') and type(val) == dict:
-            self.__fields = val
+    @param_fields.setter
+    def param_fields(self, val):
+        if not hasattr(self, '__param_fields') and type(val) == dict:
+            self.__param_fields = val
         else:
             print("warning: attempting to overwrite RunSummary fields dict.")
             print("         You probably don't want to do this. If you are")
             print("         sure you want to do this, I direct you to")
-            print("         the _RunSummary__fields attribute.")
+            print("         the _RunSummary__param_fields attribute.")
 
-    def add_field(self, field_name, value):
-        self.fields[field_name] = value
+    @property
+    def result_fields(self):
+        return self.__result_fields
+
+    @result_fields.setter
+    def result_fields(self, val):
+        if not hasattr(self, '__result_fields') and type(val) == dict:
+            self.__result_fields = val
+        else:
+            print("warning: attempting to overwrite RunSummary fields dict.")
+            print("         You probably don't want to do this. If you are")
+            print("         sure you want to do this, I direct you to")
+            print("         the _RunSummary__result_fields attribute.")
+
+    @property
+    def fields(self):
+        f = self.param_fields.copy()
+        f.update(self.result_fields)
+        return f
+
+    def add_param_field(self, field_name, value):
+        self.param_fields[field_name] = value
+
+    def add_result_field(self, field_name, value):
+        self.result_fields[field_name] = value
 
     def get_field_names(self):
         """
@@ -241,7 +266,7 @@ class RunSummary(object):
         These field names can then be passed to csv.DictWriter
         for writing the header of a CSV file.
         """
-        field_names = sorted(self.fields.keys())
+        field_names = sorted(self.param_fields.keys() + self.result_fields.keys())
 
         # make sure that param set and run number are first columns in CSV file
         if 'run_number' in field_names:
@@ -279,16 +304,15 @@ class RunSummary(object):
                 line_dict = match.groupdict()
                 line_param = line_dict['param']
                 if line_param in params_to_store:
-                    self.add_field(line_param, line_dict['val'])
+                    self.add_param_field(line_param, line_dict['val'])
 
         # for param in params_to_store:
             # if param not in self.fields:
                 # print("warning: config file missing expected parameter '{}'".format(param))
 
         # rename initial prolif and mutation rates
-        self.add_field('prolif_init', self.fields.pop('pro'))
-        self.add_field('mut_init', self.fields.pop('mut'))
-
+        self.add_param_field('prolif_init', self.param_fields.pop('pro'))
+        self.add_param_field('mut_init', self.param_fields.pop('mut'))
 
     def add_fields_from_run_dir(self, run_dir):
         """
@@ -297,14 +321,14 @@ class RunSummary(object):
         results_fpath = os.path.join(run_dir, 'results.txt')
         if not os.path.isfile(results_fpath):
             raise IOError("cannot find results for run_dir: " + run_dir)
-        self.add_fields_from_csv_file(results_fpath, delim='\t')
+        self.add_result_fields_from_csv_file(results_fpath, delim='\t')
 
         stats_fpath = os.path.join(run_dir, 'stats.txt')
         if not os.path.isfile(stats_fpath):
             raise IOError("cannot find clone stats for run_dir: " + run_dir)
-        self.add_fields_from_clone_stats(stats_fpath, delim='\t')
+        self.add_result_fields_from_clone_stats(stats_fpath, delim='\t')
 
-    def add_fields_from_csv_file(self, fpath, delim=','):
+    def add_result_fields_from_csv_file(self, fpath, delim=','):
         """
         Add all fields in a csv file to the run summary.
 
@@ -316,9 +340,9 @@ class RunSummary(object):
             reader = csv.DictReader(results_f, delimiter=delim)
             row = next(reader)
             for field, val in row.items():
-                self.add_field(field, val)
+                self.add_result_field(field, val)
 
-    def add_fields_from_clone_stats(self, stats_fpath, delim='\t'):
+    def add_result_fields_from_clone_stats(self, stats_fpath, delim='\t'):
         """
         Add summary fields computed from the clone statistics file.
         """
@@ -332,8 +356,8 @@ class RunSummary(object):
                 agg_mut += float(row['Mutation_Rate'])
                 nclones += 1
 
-        self.add_field('prolif_final_avg', agg_prolif/nclones)
-        self.add_field('mut_final_avg', agg_mut/nclones)
+        self.add_result_field('prolif_final_avg', agg_prolif/nclones)
+        self.add_result_field('mut_final_avg', agg_mut/nclones)
 
 
 def write_summaries_to_file(summaries, summary_fpath):
@@ -355,6 +379,10 @@ def generate_html_report(ps_id, summaries, summary_dir):
     """
     fields_to_summarise = ['pop_size', 'num_clones', 'prolif_final_avg', 'mut_final_avg']
 
+    all_params = summaries[0].param_fields.copy()
+    all_params.pop('param_set')
+    all_params.pop('run_number')
+
     field_data = defaultdict(list)
 
     for field_name in fields_to_summarise:
@@ -370,7 +398,7 @@ def generate_html_report(ps_id, summaries, summary_dir):
         plot = summary_plotting.histogram_boxplot(data, '{} summary (ps{})'.format(field_name, ps_id))
         plot.savefig(plot_fpath)
         summary_info = {'field_name': field_name,
-                        'plot_fpath': os.path.join('fig',os.path.split(plot_fpath)[1]),
+                        'plot_fpath': os.path.join('fig', os.path.split(plot_fpath)[1]),
                         'summary_data': pd.DataFrame(data.describe()).to_html()}
         summary_output.append(summary_info)
 
@@ -382,6 +410,17 @@ def generate_html_report(ps_id, summaries, summary_dir):
     </head>
     <body>
         <h1>{{ report_title }}</h1>
+
+        <h2>Parameters</h2>
+
+        <table>
+        {% for key, value in params.iteritems() %}
+           <tr>
+                <th> {{ key }} </th>
+                <td> {{ value }} </td>
+           </tr>
+        {% endfor %}
+        </table>
 
         <h2>Growth Curves</h2>
         <img src="{{ gc_fig }}" alt="growth curves">
@@ -397,12 +436,16 @@ def generate_html_report(ps_id, summaries, summary_dir):
     """
     report_template = jinja2.Template(TEMPLATE)
 
-    report_title = "Summary Report for Param Set {}".format(ps_id)
+    results_dir = os.path.split(summary_dir)[0]
+    report_title = "Summary Report for results in \"{}\" (param set {})".format(results_dir, ps_id)
 
     report_fpath = os.path.join(summary_dir, 'ps{}_report.html'.format(ps_id))
     gc_fpath = os.path.join('fig', 'ps{}_growthcurves.png'.format(ps_id))
     with open(report_fpath, 'w') as report_file:
-        report = report_template.render(report_title=report_title, gc_fig=gc_fpath, summary_dicts=summary_output)
+        report = report_template.render(report_title=report_title,
+                                        params=all_params,
+                                        gc_fig=gc_fpath,
+                                        summary_dicts=summary_output)
         report_file.write(report)
 
 
