@@ -9,6 +9,8 @@ AUTHOR
     'histogram_boxplot' is adapted from code by Luis Lara.
 """
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 plt.style.use('ggplot')
