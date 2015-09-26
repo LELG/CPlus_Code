@@ -405,7 +405,7 @@ def generate_html_report(ps_id, summaries, summary_dir):
     for field_name in field_data:
         data = pd.Series(field_data[field_name])
         plot_fpath = os.path.join(summary_dir, 'fig', 'ps{}_{}.png'.format(ps_id, field_name))
-        plot = summary_plotting.histogram_boxplot(data, '{} summary (ps{})'.format(field_name, ps_id))
+        plot = summary_plotting.histogram_boxplot(data, '{} (ps{})'.format(field_name, ps_id))
         plot.savefig(plot_fpath)
         summary_info = {'field_name': field_name,
                         'plot_fpath': os.path.join('fig', os.path.split(plot_fpath)[1]),
@@ -432,11 +432,15 @@ def generate_html_report(ps_id, summaries, summary_dir):
         {% endfor %}
         </table>
 
+        <hr>
+
         <h2>Growth Curves</h2>
         <img src="{{ gc_fig }}" alt="growth curves">
 
         {% for summary in summary_dicts %}
-            <h2>{{ summary['field_name'] }}</h2>
+        <hr>
+
+            <h2>Summary: {{ summary['field_name'] }}</h2>
             <img src="{{ summary['plot_fpath'] }}" alt="summary plot for {{ summary['field_name'] }}">
             <p>{{ summary['summary_data'] }}</p>
 
