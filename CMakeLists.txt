@@ -16,6 +16,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
 set(LOCAL_INCLUDES ${PROJECT_SOURCE_DIR}/include)
 
 # Search for required libraries - Boost, OpenMP, GSL
+# and MPI
 
 find_package(Boost COMPONENTS program_options filesystem system REQUIRED)
 message(status "** Boost Include: ${Boost_INCLUDE_DIR}")
@@ -24,6 +25,10 @@ message(status "** Boost Libraries: ${Boost_LIBRARIES}")
 
 find_package(OpenMP REQUIRED)
 
+find_package(MPI REQUIRED)
+message(status "** MPI Include: ${MPI_INCLUDE_PATH}")
+message(status "** MPI Libraries: ${MPI_LIBRARIES}")
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 find_package(GSL REQUIRED)
 message(status "** GSL Include: ${GSL_INCLUDE_DIR}")
@@ -31,9 +36,11 @@ message(status "** GSL Libraries: ${GSL_LIBRARIES}")
 
 add_executable (testParser test/test_parser.cpp test/test_main.cpp test/catch.hpp parser.cpp)
 add_executable (tumourSim V1_Main_Tumour_Evoulution.cpp parser.cpp Random.cpp)
+add_executable (tumourSimTreatment TEM_V1.cpp)
 
 include_directories("${Boost_INCLUDE_DIR}")
 include_directories("${GSL_INCLUDE_DIR}")
+include_directories("${MPI_INCLUDE_PATH}")
 include_directories("${LOCAL_INCLUDES}")
 include_directories("${PROJECT_SOURCE_DIR}/test")
 link_directories("${Boost_LIBRARY_DIRS}")
@@ -43,3 +50,12 @@ set_target_properties(tumourSim PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
 target_link_libraries(testParser ${Boost_LIBRARIES})
 target_link_libraries(tumourSim ${Boost_LIBRARIES})
 target_link_libraries(tumourSim ${GSL_LIBRARIES})
+target_link_libraries(tumourSimTreatment ${GSL_LIBRARIES} ${MPI_LIBRARIES})
+
+if(MPI_COMPILE_FLAGS)
+  set_target_properties(tumourSimTreatment PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+endif()
+
+if(MPI_LINK_FLAGS)
+  set_target_properties(tumourSimTreatment PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+endif()
