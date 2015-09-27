@@ -2746,7 +2746,7 @@ namespace core {
 
 	string set_Working_Dir()
 	{
-		return ( get_Working_Dir() + VERSION) ;
+		return ( get_Working_Dir() + "/results/") ;
 	}
 
 	void create_Dir(string path)
