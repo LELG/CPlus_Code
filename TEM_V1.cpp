@@ -2688,9 +2688,10 @@ namespace core {
 		unsigned int ith_clone = 0;
 		ofstream Pop_Stats;
 		Pop_Stats.open (path);
-		Pop_Stats << "Number_of_Memebers_to_Start_Heterogeneity\t" 
+		Pop_Stats << "id\t"
+                  << "Number_of_Memebers_to_Start_Heterogeneity\t" 
 				  << "Generation_ID_Counter\t" 
-				  << "clone_extinct\t" 
+				  << "Extinct\t" 
 				  << "Mutation_Rate\t" 
 				  << "Number_of_Mutations\t" 
 				  << "Clone_Size\t" 
@@ -2700,8 +2701,8 @@ namespace core {
 				  << "In_S_Phase\t"
 				  << "In_G2_Phase\t"
 				  << "In_M_Phase\t"
-				  << "DEATH_RATE\t"
-				  << "PROLIFERATION_RATE\t"
+				  << "Death_Rate\t"
+				  << "Proliferation_Rate\t"
 				  << "Remaining_Time_in_G1_Phase\t"
 				  << "Remaining_Time_in_S_Phase\t"
 				  << "Remaining_Time_in_G2_Phase\t"
@@ -2730,7 +2731,7 @@ namespace core {
   					  << CE -> Tumour -> at(ith_clone) -> Remaining_Time_in_S_Phase << "\t"
   					  << CE -> Tumour -> at(ith_clone) -> Remaining_Time_in_G2_Phase << "\t"
   					  << CE -> Tumour -> at(ith_clone) -> Remaining_Time_in_M_Phase << "\t"
-  					  << CE -> Tumour -> at (ith_clone) -> Generation_ID << "\t"
+  					  << CE -> Tumour -> at (ith_clone) -> Generation_ID
   					  << "\n" ;
 
   		}
