@@ -2786,7 +2786,7 @@ namespace core {
   		time (&rawtime);
   		timeinfo = localtime (&rawtime);
 
-  		strftime (buffer,80,"%a_%F_%H_%M",timeinfo);
+  		strftime (buffer,80,"%a_%F_%H_%M_%S",timeinfo);
  		puts (buffer);
 
  		string timeStamp(buffer);
