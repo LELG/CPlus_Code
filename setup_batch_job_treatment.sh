@@ -64,17 +64,17 @@ else
 fi
 
 # start constructing PBS script
-now=$(date +"%Y-%m-%d_%H-%M-%S")
-pbs_script="PBS-treatment-"$now".sh"
+test_group=$(date +"%a_%F_%H_%M_%S")
+pbs_script="PBS-treatment-"$test_group".sh"
 echo "==> Creating PBS script $pbs_script ..."
 
 # first, send necessary variables
 cat >> $pbs_script << _endmsg
 #!/bin/bash
-#PBS -N treatment_$now
+#PBS -N treatment_$test_group
 #PBS -l walltime=$walltime
 #PBS -l nodes=1:ppn=$num_proc
-#PBS -o treatment_$now.log
+#PBS -o treatment_$test_group.log
 #PBS -j oe
 #PBS -t 1-$num_runs
 $queue
@@ -83,6 +83,7 @@ $mailadd
 
 this_script="$pbs_script"
 num_runs=$num_runs
+test_group="$test_group"
 _endmsg
 
 # then send the body of the script, verbatim
@@ -100,20 +101,18 @@ if [ ! -f build/tumourSimTreatment ]; then
   exit 1
 fi
 
-sleep $((PBS_ARRAYID * 2))
-
 echo
 echo "------------------------------------------"
 echo
 echo "Starting TREATMENT simulation ..."
 echo
-echo "RUN: "$PBS_ARRAYID" of "$num_runs
+echo "RUN: "$run_number" of "$num_runs
 echo
 echo "------------------------------------------"
 echo
 
 # run simulation
-mpirun build/tumourSimTreatment
+mpirun build/tumourSimTreatment --test_group $test_group --run_number $run_number
 _endmsg
 
 echo "==> PBS script created"
