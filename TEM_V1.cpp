@@ -1738,6 +1738,37 @@ namespace core {
   		Pop_Stats.close();
 	}
 
+    /*
+     * Helper function for writing some top-level sim results to a file.
+     */
+    void write_results_file(std::unique_ptr<Clonal_Expansion> const& CE, std::string fpath, double runtime_secs,
+                            unsigned int years, unsigned int hours, unsigned int seconds)
+    {
+        std::ofstream results_fstream;
+        results_fstream.open(fpath);
+
+        std::string header;
+        header = "pop_size\tnum_clones\truntime\telapsed_sim_years\telapsed_sim_hours\telapsed_sim_seconds\n";
+        results_fstream << header;
+
+        int rounded_runtime_secs = (int)runtime_secs;
+        std::ostringstream runtime;
+        int runtime_mins = rounded_runtime_secs/60;
+        runtime_secs -= runtime_mins * 60;
+        int runtime_hrs = runtime_mins/60;
+        runtime_mins = runtime_mins % 60;
+        runtime << boost::format("%1%:%|2$02|:%3$04.1f") % runtime_hrs % runtime_mins % runtime_secs;
+
+        results_fstream << CE->Population_Size << "\t"
+                        << CE->Tumour->size() << "\t"
+                        << runtime.str() << "\t"
+                        << years << "\t"
+                        << hours << "\t"
+                        << seconds << "\n";
+
+        results_fstream.close();
+    }
+
 	unsigned int Abort_Condition(unique_ptr<Clonal_Expansion> const & CE, unsigned int times_to_wait)
 	{
 		if( CE -> Population_Size >  DETECTABLE_POPULATION_SIZE )
@@ -2937,6 +2968,8 @@ namespace core {
 
 	void Multiple_Tumour_Scheme(unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, po::variables_map params)
 	{
+            clock_t begin = clock(); // start timing simulation
+
 			compute_Tumour_Evolution( CE,  BasePath, myID, params );
         	//MPI_Barrier(MPI_COMM_WORLD);
         	Purge_Death_Clones( CE );
@@ -2944,6 +2977,14 @@ namespace core {
         	treatment( CE, BasePath, myID, DEFAULT_TREATMENT_FILE, params);
         	cout << "Porcess " << myID << " DONE " <<endl;
         	//MPI_Barrier(MPI_COMM_WORLD);
+
+            clock_t end = clock(); // finish timing simulation
+            double cpu_secs = double(end - begin) / CLOCKS_PER_SEC;
+
+            string results_path = BasePath + "/run" + to_string(params["run_number"].as<int>()) + "/results.txt";
+            // TODO replace dummy yrs/hrs/seconds with real values
+            write_results_file(CE, results_path, cpu_secs, 0, 0, 0);
+
         	MPI_Finalize();
         	//Decide to save alive population
 	}
@@ -3007,11 +3048,12 @@ namespace core {
 
 	void Simulate_Tumour_Evolution( unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, po::variables_map params)
 	{
-
 		if(MULTIPLE_TUMOURS)
         	Multiple_Tumour_Scheme(CE, BasePath, myID, params);
         else
         {
+            clock_t begin = clock(); // start timing simulation
+
         	if(myID == 0)
         		Tumour_Growth( CE, BasePath, myID, params );
 
@@ -3022,6 +3064,13 @@ namespace core {
 
         	MPI_Barrier(MPI_COMM_WORLD);
         	Drug_Trial( CE, BasePath, myID, params);
+
+            clock_t end = clock(); // finish timing simulation
+            double cpu_secs = double(end - begin) / CLOCKS_PER_SEC;
+
+            string results_path = BasePath + "/run" + to_string(params["run_number"].as<int>()) + "/results.txt";
+            // TODO replace dummy yrs/hrs/seconds with real values
+            write_results_file(CE, results_path, cpu_secs, 0, 0, 0);
         
         	MPI_Finalize();
         }//else
@@ -3031,6 +3080,9 @@ namespace core {
 	void Simulate_StandAlone_Tumour_Evolution( unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, po::variables_map params)
 	{
 		cout << " JUST ONE PROCES " << endl;
+
+        clock_t begin = clock(); // start timing simulation
+
 		// This always should be zero
 		if(myID == 0)
         {
@@ -3038,6 +3090,14 @@ namespace core {
         	Purge_Death_Clones( CE );
         	Drug_Trial( CE, BasePath, myID, params);
         }
+
+        clock_t end = clock(); // finish timing simulation
+        double cpu_secs = double(end - begin) / CLOCKS_PER_SEC;
+
+        string results_path = BasePath + "/run" + to_string(params["run_number"].as<int>()) + "/results.txt";
+        // TODO replace dummy yrs/hrs/seconds with real values
+        write_results_file(CE, results_path, cpu_secs, 0, 0, 0);
+
         MPI_Finalize();
 	}//Function
 
