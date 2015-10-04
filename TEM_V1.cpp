@@ -65,7 +65,9 @@ Supervisor:    David Goode, PhD
 #include <initializer_list>
 #include <mpi.h>	// Needs to be included in order to use MPI
 
+#define BOOST_NO_CXX11_SCOPED_ENUMS
 #include <boost/filesystem.hpp>
+#undef BOOST_NO_CXX11_SCOPED_ENUMS
 namespace fs = boost::filesystem;
 #include <boost/format.hpp>
 
@@ -2558,6 +2560,7 @@ namespace core {
 		unique_ptr<Treatment> const Therapy = get_Treatment_DS();
 	
 		Read_CTX(CTX_file, Therapy);
+        fs::copy_file(fs::path(CTX_file), fs::path(run_dir + "/CTX_Scheme_ID_" + to_string(myID) + ".drug"));
 
 		//unique_ptr<Drug> const CTX = get_Drug();
 
@@ -2781,15 +2784,15 @@ namespace core {
 	void create_Subflders(string path, string run_number)
 	{
 		path = path +"/";
-		string Stats = path +"Stats";
-		string Growth = path +"Growth";
+		// string Stats = path +"Stats";
+		// string Growth = path +"Growth";
 		struct stat st = {0};
 
-		if (stat(Stats.c_str(), &st) == -1) 
-    		mkdir(Stats.c_str(), 0700);
+		// if (stat(Stats.c_str(), &st) == -1) 
+            // mkdir(Stats.c_str(), 0700);
 
-    	if (stat(Growth.c_str(), &st) == -1) 
-    		mkdir(Growth.c_str(), 0700);
+        // if (stat(Growth.c_str(), &st) == -1) 
+            // mkdir(Growth.c_str(), 0700);
 
 		if(SAVE_CLONAL_EVOLUTION)
 		{
@@ -2974,6 +2977,11 @@ namespace core {
 	{
 		string init_path = ReplaceAll( BasePath, ("ps"+to_string(myID+1)), "ps1") + "/run" + to_string(params["run_number"].as<int>());
         open_Tumour_Population(init_path + "/Alive_Clones_Prior.txt", CE);
+
+		string dup_path = BasePath + "/run" + to_string(params["run_number"].as<int>());
+        fs::copy_file(init_path + "/Alive_Clones_Prior.txt", dup_path + "/Alive_Clones_Prior.txt");
+        fs::copy_file(init_path + "/All_Clones_Prior.txt", dup_path + "/All_Clones_Prior.txt");
+        fs::copy_file(init_path + "/Initial_Growth.txt", dup_path + "/Initial_Growth.txt");
 
         set_Expansion_Struct_Parameters(CE);
 
