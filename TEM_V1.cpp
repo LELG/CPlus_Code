@@ -1778,13 +1778,13 @@ namespace core {
 		*/ 
   		ofstream Tumour_Evolution;
   		string Growth = BasePath
-                        + '/'
-                        + params["run_number"].as<string>()
+                        + "/run"
+                        + to_string(params["run_number"].as<int>())
                         + '/'
                         + "Initial_Growth.txt"; 
   		string Stats = BasePath
-                       + '/'
-                       + params["run_number"].as<string>()
+                       + "/run"
+                       + to_string(params["run_number"].as<int>())
                        + '/'
                        + "All_Clones_Prior.txt"; 
   		// cconsider havinf as iput the file names for this and other files
@@ -2543,14 +2543,11 @@ namespace core {
 		unsigned int years = 0;
 		unsigned int elapsed_hours = 0;
 
-		string Growth = BasePath
-                        + '/'
-                        + params["run_number"].as<string>()
+        string run_dir = BasePath + "/run" + to_string(params["run_number"].as<int>());
+		string Growth = run_dir
                         + '/'
                         + "Treatment_Growth.txt";
-		string Stats = BasePath
-                       + '/'
-                       + params["run_number"].as<string>()
+		string Stats = run_dir
                        + '/'
                        + "All_Clones_Posterior.txt";
 		//unsigned int times_to_wait = 0;
@@ -2781,7 +2778,7 @@ namespace core {
     		mkdir(path.c_str(), 0700);
 	}
 
-	void create_Subflders(string path)
+	void create_Subflders(string path, string run_number)
 	{
 		path = path +"/";
 		string Stats = path +"Stats";
@@ -2800,6 +2797,8 @@ namespace core {
 			if (stat(Clonal_Evolution.c_str(), &st) == -1) 
     			mkdir(Clonal_Evolution.c_str(), 0700);
 		}
+
+        create_Dir(path + "run" + run_number);
 	}//function
 
 	string generate_TimeStamp()
@@ -2840,11 +2839,11 @@ namespace core {
 		string BasePath = set_Working_Dir() ;
 		create_Dir(BasePath);
 
-		string SimulationPath = BasePath
-                                + '/'
-                                + generate_datestamp()
-                                + '/'
-                                + params["test_group"].as<string>();
+		string SimulationPath = BasePath + generate_datestamp();
+        create_Dir(SimulationPath);
+
+        SimulationPath = SimulationPath
+                         + '/' + params["test_group"].as<string>();
 		create_Dir(SimulationPath);
 
  		cout << "Global path @ " << SimulationPath << endl;
@@ -2914,11 +2913,11 @@ namespace core {
     	return Path;
 	}
 
-	string generate_subfolders(string BasePath, int myID)
+	string generate_subfolders(string BasePath, int myID, string run_number)
 	{
 		BasePath = BasePath +"/ps" + to_string(myID+1);
         create_Dir(BasePath);
-        create_Subflders(BasePath);
+        create_Subflders(BasePath, run_number);
         return BasePath;
 	}
 
@@ -2967,14 +2966,15 @@ namespace core {
 		compute_Tumour_Evolution( CE,  BasePath, myID, params );
         //MPI_Barrier(MPI_COMM_WORLD);
         Purge_Death_Clones( CE );
-        Store_ALL_Population_Stats(CE, BasePath +"/" + params["run_number"].as<string>() + "/" + "Alive_Clones_Prior.txt");
+        Store_ALL_Population_Stats(CE, BasePath +"/run" + to_string(params["run_number"].as<int>()) + "/" + "Alive_Clones_Prior.txt");
 
 	}
 
 	void load_Tumour_Population( unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, po::variables_map params )
 	{
-		string temp = ReplaceAll( BasePath, ("ps"+to_string(myID+1)), "ps1") + "/" + params["run_number"].as<string>() + "/" + "Alive_Clones_Prior.txt";
-        open_Tumour_Population(temp, CE);
+		string init_path = ReplaceAll( BasePath, ("ps"+to_string(myID+1)), "ps1") + "/run" + to_string(params["run_number"].as<int>());
+        open_Tumour_Population(init_path + "/Alive_Clones_Prior.txt", CE);
+
         set_Expansion_Struct_Parameters(CE);
 
 	}
@@ -3081,7 +3081,7 @@ int main( int argc, char** argv )
 			Wait all processes to enter the follwing section of code
         */
         MPI_Barrier(MPI_COMM_WORLD);
-        BasePath = generate_subfolders( BasePath,  myID );
+        BasePath = generate_subfolders( BasePath,  myID, to_string(params["run_number"].as<int>()) );
         MPI_Barrier(MPI_COMM_WORLD);// This Barrier may be omitted
 
         if(N_Procs > 1)
