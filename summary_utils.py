@@ -13,6 +13,8 @@ import os
 import csv
 import re
 import pandas as pd
+import ConfigParser
+import StringIO
 
 
 class RunSummary(object):
@@ -29,7 +31,6 @@ class RunSummary(object):
     method calls to this class.
     """
     def __init__(self):
-        #self.fields = {}
         self.param_fields = {}
         self.result_fields = {}
 
@@ -43,9 +44,7 @@ class RunSummary(object):
             self.__param_fields = val
         else:
             print("warning: attempting to overwrite RunSummary fields dict.")
-            print("         You probably don't want to do this. If you are")
-            print("         sure you want to do this, I direct you to")
-            print("         the _RunSummary__param_fields attribute.")
+            print("         You probably don't want to do this.")
 
     @property
     def result_fields(self):
@@ -57,9 +56,7 @@ class RunSummary(object):
             self.__result_fields = val
         else:
             print("warning: attempting to overwrite RunSummary fields dict.")
-            print("         You probably don't want to do this. If you are")
-            print("         sure you want to do this, I direct you to")
-            print("         the _RunSummary__result_fields attribute.")
+            print("         You probably don't want to do this.")
 
     @property
     def fields(self):
@@ -95,96 +92,75 @@ class RunSummary(object):
 
         return field_names
 
-    def add_fields_from_conf_file(self, conf_fpath):
+    def add_results_from_conf(self, fpath):
         """
-        Add parameters from a configuration file to the summary.
+        Add simulation results from a CSV file.
+        """
+        self.add_from_csv(fpath, delim, 'results')
 
-        This method assumes the config file is a list of
+    def add_params_from_conf(self, fpath):
+        """
+        Add simulation parameters from a CSV file.
+        """
+        self.add_from_csv(fpath, delim, 'params')
 
-            param = val
+    def add_from_conf(self, fpath, field_type):
+        """
+        Add summary fields from an initialisation/properties file.
+
+        That is, add fields from a file formatted as a list of
+
+            field = val
 
         assignments (the spaces around the '=' being optional).
-
-        Note that this method hardcodes the list of parameters
-        to be added to the summary.
         """
-        params_to_store = ['pro', 'die', 'mut', 'qui',
-                           'prob_mut_pos', 'prob_mut_neg',
-                           'prob_inc_mut', 'prob_dec_mut',
-                           'driver_quantile', 'killer_quantile',
-                           'beneficial_quantile', 'deleterious_quantile']
+        with open(fpath) as fp:
+            conf_str = '[root]\n' + fp.read()
 
-        with open(conf_fpath) as conf_file:
-            pattern = r"(?P<param>[^\s]+)[\s]*=[\s]*(?P<val>[^\s]+)"
-            for line in conf_file:
-                match = re.search(pattern, line)
-                line_dict = match.groupdict()
-                line_param = line_dict['param']
-                if line_param in params_to_store:
-                    self.add_param_field(line_param, line_dict['val'])
+        conf_fp = StringIO.StringIO(conf_str)
 
-        # for param in params_to_store:
-            # if param not in self.fields:
-                # print("warning: config file missing expected parameter '{}'".format(param))
+        parser = SafeConfigParser()
+        parser.readfp(conf_fp)
 
-        # rename initial prolif and mutation rates
-        self.add_param_field('prolif_init', self.param_fields.pop('pro'))
-        self.add_param_field('mut_init', self.param_fields.pop('mut'))
+        if field_type == 'results':
+            for field, val in parser.items('root'):
+                self.add_result_field(field, val)
+        elif field_type == 'params':
+            for field, val in parser.items('root'):
+                self.add_param_field(field, val)
+        else:
+            raise ValueError
 
-    def add_fields_from_run_dir(self, run_dir):
+    def add_results_from_csv(self, fpath, delim=','):
         """
-        Add fields to summary from files contained in a replicate run directory.
+        Add simulation results from a CSV file.
         """
-        results_fpath = os.path.join(run_dir, 'results.txt')
-        if not os.path.isfile(results_fpath):
-            raise IOError("cannot find results for run_dir: " + run_dir)
-        self.add_result_fields_from_csv_file(results_fpath, delim='\t')
+        self.add_from_csv(fpath, delim, 'results')
 
-        stats_fpath = os.path.join(run_dir, 'stats.txt')
-        if not os.path.isfile(stats_fpath):
-            raise IOError("cannot find clone stats for run_dir: " + run_dir)
-        self.add_result_fields_from_clone_stats(stats_fpath, delim='\t')
-
-    def add_result_fields_from_csv_file(self, fpath, delim=','):
+    def add_params_from_csv(self, fpath, delim=','):
         """
-        Add all fields in a csv file to the run summary.
+        Add simulation parameters from a CSV file.
+        """
+        self.add_from_csv(fpath, delim, 'params')
+
+    def add_from_csv(self, fpath, delim=',', field_type):
+        """
+        Add summary fields from a csv file.
 
         This assumes that every field in the CSV file should
         be stored to the summary. It will also only take values
-        from the first row of the file. Any later rows will be ignored!
+        from the first row of the file; any later rows will be ignored!
+        Also assumes CSV file has a header identifying the fields.
         """
         with open(fpath) as results_f:
             reader = csv.DictReader(results_f, delimiter=delim)
             row = next(reader)
-            for field, val in row.items():
-                self.add_result_field(field, val)
-
-    def add_result_fields_from_clone_stats(self, stats_fpath, delim='\t'):
-        """
-        Add summary fields computed from the clone statistics file.
-        """
-        with open(stats_fpath) as stats_file:
-            reader = csv.DictReader(stats_file, delimiter=delim)
-
-            tumour_size = 0
-            dominant_clone_size = 0
-            agg_prolif = 0.0
-            agg_mut = 0.0
-            nclones = 0
-
-            for row in reader:
-                clone_size = int(row['Clone_size'])
-                tumour_size += clone_size
-                if clone_size > dominant_clone_size:
-                    dominant_clone_size = clone_size
-
-                agg_prolif += float(row['Proliferation_Rate'])
-                agg_mut += float(row['Mutation_Rate'])
-                nclones += 1
-
-        self.add_result_field('prolif_final_avg', agg_prolif/nclones)
-        self.add_result_field('mut_final_avg', agg_mut/nclones)
-        self.add_result_field('dom_clone_proportion', float(dominant_clone_size)/tumour_size)
+            if field_type == 'results':
+                self.result_fields.update(row)
+            elif field_type == 'params':
+                self.param_fields.update(row)
+            else:
+                raise ValueError
 
 
 def write_summaries_to_file(summaries, summary_fpath):
