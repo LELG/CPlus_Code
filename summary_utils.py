@@ -9,9 +9,7 @@ AUTHOR
     yoshua.wakeham@petermac.org
 """
 from __future__ import print_function
-import os
 import csv
-import re
 import pandas as pd
 import ConfigParser
 import StringIO
@@ -96,13 +94,13 @@ class RunSummary(object):
         """
         Add simulation results from a CSV file.
         """
-        self.add_from_csv(fpath, delim, 'results')
+        self.add_from_csv(fpath, field_type='results')
 
     def add_params_from_conf(self, fpath):
         """
         Add simulation parameters from a CSV file.
         """
-        self.add_from_csv(fpath, delim, 'params')
+        self.add_from_csv(fpath, field_type='params')
 
     def add_from_conf(self, fpath, field_type):
         """
@@ -119,7 +117,7 @@ class RunSummary(object):
 
         conf_fp = StringIO.StringIO(conf_str)
 
-        parser = SafeConfigParser()
+        parser = ConfigParser.SafeConfigParser()
         parser.readfp(conf_fp)
 
         if field_type == 'results':
@@ -135,15 +133,15 @@ class RunSummary(object):
         """
         Add simulation results from a CSV file.
         """
-        self.add_from_csv(fpath, delim, 'results')
+        self.add_from_csv(fpath, field_type='results', delim=delim)
 
     def add_params_from_csv(self, fpath, delim=','):
         """
         Add simulation parameters from a CSV file.
         """
-        self.add_from_csv(fpath, delim, 'params')
+        self.add_from_csv(fpath, field_type='params', delim=delim)
 
-    def add_from_csv(self, fpath, delim=',', field_type):
+    def add_from_csv(self, fpath, field_type, delim=','):
         """
         Add summary fields from a csv file.
 
