@@ -19,7 +19,7 @@ import pandas as pd
 import re
 
 import vis_utils
-from summary_utils import RunSummary, write_summaries_to_file, make_report
+from summary_utils import RunSummary, write_summaries_to_file
 
 
 def main():
@@ -138,7 +138,7 @@ def summarise_param_set(ps_dir, summary_dir):
     write_summaries_to_file(summaries, summary_fpath)
 
     print("generating html report")
-    make_report(ps_id, summaries, summary_dir)
+    vis_utils.make_html_report(ps_id, summaries, summary_dir)
 
 
 def get_growth_data(ps_dir):
