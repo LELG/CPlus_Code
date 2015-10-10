@@ -1047,7 +1047,7 @@ namespace core {
         stats_fstream.open(fpath);
 
         std::string header;
-        header = "id\tClone_size\tProliferation_Rate\tMutation_Rate\tExtinct\tG_ID\n";
+        header = "id\tClone_Size\tProliferation_Rate\tMutation_Rate\tExtinct\tG_ID\n";
         stats_fstream << header;
 
         for(unsigned int i=0; i < CE->Tumour->size(); i++)
@@ -1108,7 +1108,7 @@ namespace core {
             fs::create_directory(run_dir);
         }
 
-        fs::path ts_path = run_dir / "tumour_size.txt";
+        fs::path ts_path = run_dir / "tumour_growth.txt";
         fs::path debugging_path = run_dir / "debugging.txt";
 
         tumour_size_file.open(ts_path.string());
