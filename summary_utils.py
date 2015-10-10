@@ -1,7 +1,6 @@
 """
-Utilities for crawling results directories,
-generating summary files, plots and reports from the data,
-and compressing results.
+Utilities for summarising simulation runs, to facilitate
+analysis and visualisation.
 
 AUTHOR
     Yoshua Wakeham

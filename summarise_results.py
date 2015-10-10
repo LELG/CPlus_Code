@@ -4,6 +4,11 @@ A script for crawling a simulation results directory,
 generating summary files, plots and reports from the data,
 and, optionally, compressing the raw results.
 
+NOTE: This script will become outdated if the structure
+of the simulation results directory changes, or if
+at a future point the results are stored in a database
+instead of a directory.
+
 AUTHOR
     Yoshua Wakeham
     y.wakeham@student.unimelb.edu.au
