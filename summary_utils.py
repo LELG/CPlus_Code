@@ -31,6 +31,7 @@ class RunSummary(object):
     def __init__(self):
         self.param_fields = {}
         self.result_fields = {}
+        self.timeseries = None
 
     @property
     def param_fields(self):
@@ -61,6 +62,17 @@ class RunSummary(object):
         f = self.param_fields.copy()
         f.update(self.result_fields)
         return f
+
+    @property
+    def timeseries(self):
+        return self.__timeseries
+
+    @timeseries.setter
+    def timeseries(self, val):
+        if val is None or issubclass(val.__class__, pd.core.base.PandasObject):
+            self.__timeseries = val
+        else:
+            print("Error: RunSummary.timeseries must be a pandas object")
 
     def __repr__(self):
         # TODO expand this stub method
