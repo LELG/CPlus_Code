@@ -191,7 +191,9 @@ def generate_run_summary(run_dir):
     """
     Create and populate a RunSummary object for an individual simulation run.
     """
-    summary = RunSummary()
+    run_number = get_run_number(run_dir)
+    run_id = 'run' + str(run_number)
+    summary = RunSummary(run_id)
     summary.add_param_field('run_number', get_run_number(run_dir))
     add_fields_from_run_dir(summary, run_dir)
     return summary
@@ -216,12 +218,6 @@ def add_fields_from_conf_file(summary, conf_fpath):
     """
     Add parameters from a conf file to the summary.
     """
-    #params_to_store = ['pro', 'die', 'mut', 'qui',
-    #                   'prob_mut_pos', 'prob_mut_neg',
-    #                   'prob_inc_mut', 'prob_dec_mut',
-    #                   'driver_quantile', 'killer_quantile',
-    #                   'beneficial_quantile', 'deleterious_quantile']
-
     summary.add_params_from_conf(conf_fpath)
 
     # rename initial prolif and mutation rates

@@ -29,12 +29,24 @@ class RunSummary(object):
     method calls to this class.
     """
 
-    __slots__ = ['__fields', '__param_fields', '__result_fields', '__timeseries']
+    __slots__ = ['__run_id', '__fields', '__param_fields',
+                 '__result_fields', '__timeseries']
 
-    def __init__(self):
+    def __init__(self, run_id):
+        self.run_id = run_id
         self.param_fields = {}
         self.result_fields = {}
         self.timeseries = None
+
+    @property
+    def run_id(self):
+        return self.__run_id
+
+    @run_id.setter
+    def run_id(self, val):
+        if type(val) != str:
+            raise ValueError("run_id must be string")
+        self.__run_id = val
 
     @property
     def param_fields(self):
