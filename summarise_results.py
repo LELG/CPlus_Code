@@ -148,13 +148,31 @@ def get_growth_data(run_dir):
     """
     Store growth curve data from a simulation run to a pandas DataFrame.
     """
-    growth_fpath = os.path.join(run_dir, 'tumour_size.txt')
-    growth_data = pd.read_csv(growth_fpath, sep='\t', header=None)
+    try:
+        growth_fpath = os.path.join(run_dir, 'tumour_growth.txt')
+        growth_data = pd.read_csv(growth_fpath, sep='\t', header=None)
+        # remove superfluous time column
+        growth_data.pop(1)
 
-    # actual growth data is in first column of CSV file
-    growth_data.pop(1)
-    # rename first column
-    growth_data.columns = ['pop_size']
+        growth_data.columns = ['pop_size']
+    except IOError:
+        # this is a treatment simulation, need to stitch two files together
+        init_growth_fpath = os.path.join(run_dir, 'Initial_Growth.txt')
+        init_growth_data = pd.read_csv(init_growth_fpath, sep='\t', header=None)
+
+        treat_growth_fpath = os.path.join(run_dir, 'Treatment_Growth.txt')
+        treat_growth_data = pd.read_csv(treat_growth_fpath, sep='\t', header=None)
+
+        growth_data = pd.concat([init_growth_data, treat_growth_data])
+
+        # sanitise data: remove spurious time column,
+        # unify the indices, and replace NAs (for select_pressure) with 0s
+        growth_data.pop(1)
+        growth_data = growth_data.reset_index(drop=True)
+        growth_data = growth_data.fillna(0)
+
+        growth_data.columns = ['pop_size', 'select_pressure']
+
 
     return growth_data
 
@@ -167,7 +185,11 @@ def get_param_set_summaries(ps_dir):
 
     run_dirs = get_run_subdirs(ps_dir)
 
-    ps_conf_fpath = get_conf_fpath(ps_dir)
+    try:
+        ps_conf_fpath = get_conf_fpath(ps_dir)
+    except ValueError:
+        # treatment sim
+        ps_conf_fpath = None
 
     nruns = len(run_dirs)
     curr = 0
@@ -178,7 +200,8 @@ def get_param_set_summaries(ps_dir):
 
         run_summary = generate_run_summary(run_dir)
         run_summary.add_param_field('param_set', get_param_set(ps_dir))
-        add_fields_from_conf_file(run_summary, ps_conf_fpath)
+        if ps_conf_fpath:
+            add_fields_from_conf_file(run_summary, ps_conf_fpath)
         summaries.append(run_summary)
 
     return summaries
@@ -206,10 +229,21 @@ def add_fields_from_run_dir(summary, run_dir):
         raise IOError("cannot find results for run_dir: " + run_dir)
     summary.add_results_from_csv(results_fpath, delim='\t')
 
-    stats_fpath = os.path.join(run_dir, 'stats.txt')
-    if not os.path.isfile(stats_fpath):
-        raise IOError("cannot find clone stats for run_dir: " + run_dir)
-    add_result_fields_from_clone_stats(summary, stats_fpath)
+    try:
+        stats_fpath = os.path.join(run_dir, 'stats.txt')
+        add_result_fields_from_clone_stats(summary, stats_fpath)
+    except IOError:
+        # treatment simulation
+        try:
+            stats_fpath = os.path.join(run_dir, "All_Clones_Posterior.txt")
+            add_result_fields_from_clone_stats(summary, stats_fpath)
+        except IOError:
+            # PRIOR of a treatment simulation
+            try:
+                stats_fpath = os.path.join(run_dir, "All_Clones_Prior.txt")
+                add_result_fields_from_clone_stats(summary, stats_fpath)
+            except IOError:
+                print("Could not find clone stats file for dir '{}'".format(run_dir))
 
 
 def add_fields_from_conf_file(summary, conf_fpath):
@@ -237,7 +271,7 @@ def add_result_fields_from_clone_stats(summary, stats_fpath, delim='\t'):
         nclones = 0
 
         for row in reader:
-            clone_size = int(row['Clone_size'])
+            clone_size = int(row['Clone_Size'])
             tumour_size += clone_size
             if clone_size > dominant_clone_size:
                 dominant_clone_size = clone_size
