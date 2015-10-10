@@ -2812,6 +2812,72 @@ namespace core {
     		mkdir(path.c_str(), 0700);
 	}
 
+    /*
+     * Copy the contents of `source` to `destination`.
+     *
+     * Written by StackOverflow user nijansen. See:
+     *     http://stackoverflow.com/questions/8593608
+     */
+    bool copy_dir( fs::path const & source, fs::path const & destination)
+    {
+        try
+        {
+            // Check whether the function call is valid
+            if( !fs::exists(source) || !fs::is_directory(source))
+            {
+                std::cerr << "Source directory " << source.string()
+                          << " does not exist or is not a directory."
+                          << std::endl;
+                return false;
+            }
+            if(fs::exists(destination))
+            {
+                std::cerr << "Destination directory " << destination.string()
+                          << " already exists." << std::endl;
+                return false;
+            }
+            // Create the destination directory
+            if(!fs::create_directory(destination))
+            {
+                std::cerr << "Unable to create destination directory"
+                          << destination.string() << std::endl;
+                return false;
+            }
+        }
+        catch(fs::filesystem_error const & e)
+        {
+            std::cerr << e.what() << std::endl;
+            return false;
+        }
+
+        // Iterate through the source directory
+        for( fs::directory_iterator file(source); file != fs::directory_iterator(); ++file)
+        {
+            try
+            {
+                fs::path current(file->path());
+                if(fs::is_directory(current))
+                {
+                    // Found directory: Recursion
+                    if( !copy_dir( current, destination / current.filename()))
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    // Found file: Copy
+                    fs::copy_file( current, destination / current.filename());
+                }
+            }
+            catch(fs::filesystem_error const & e)
+            {
+                std:: cerr << e.what() << '\n';
+            }
+        }
+        return true;
+    }
+
 	void create_Subflders(string path, string run_number)
 	{
 		path = path +"/";
@@ -3058,6 +3124,18 @@ namespace core {
         		Tumour_Growth( CE, BasePath, myID, params );
 
         	MPI_Barrier(MPI_COMM_WORLD);
+
+            // Copy data about the prior population to a special directory
+            string source_dir = create_Store_Directories(params) + "/ps1/run" + to_string(params["run_number"].as<int>());
+            string prior_dir = create_Store_Directories(params) + "/prior/run" + to_string(params["run_number"].as<int>());
+            copy_dir(fs::path(source_dir), fs::path(prior_dir));
+
+            // record results for prior
+            double prior_cpu_secs = double(clock() - begin) / CLOCKS_PER_SEC;
+
+            string prior_results_path = prior_dir + "/results.txt";
+            // TODO replace dummy yrs/hrs/seconds with real values
+            write_results_file(CE, prior_results_path, prior_cpu_secs, 0, 0, 0);
         	
         	if(myID != 0)
         		load_Tumour_Population( CE, BasePath, myID, params );
