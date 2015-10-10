@@ -72,10 +72,10 @@ class RunSummary(object):
 
     @timeseries.setter
     def timeseries(self, val):
-        if val is None or issubclass(val.__class__, pd.core.base.PandasObject):
+        if val is None or type(val) == pd.core.frame.DataFrame:
             self.__timeseries = val
         else:
-            print("Error: RunSummary.timeseries must be a pandas object")
+            print("Error: RunSummary.timeseries must be a pandas DataFrame")
 
     def __repr__(self):
         # TODO expand this stub method
