@@ -62,6 +62,10 @@ class RunSummary(object):
         f.update(self.result_fields)
         return f
 
+    def __repr__(self):
+        # TODO expand this stub method
+        return "RunSummary() at {}".format(id(self))
+
     def add_param_field(self, field_name, value):
         self.param_fields[field_name] = value
 
