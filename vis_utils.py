@@ -44,12 +44,18 @@ def histogram_boxplot(data, title):
     return fig
 
 
-def plot_growth_curves(df):
+def plot_growth_curves(summaries):
     """
-    Plot a selection of growth curves, stored in a pandas.DataFrame.
+    Plot growth curves for a collection of RunSummary objects.
     """
     fig = plt.figure()
     ax0 = fig.add_subplot(111)
+
+    growth_data = [summ.timeseries['pop_size'] for summ in summaries]
+
+    df = pd.concat(growth_data, axis=1)
+    df.columns = [summ.run_id for summ in summaries]
+
     df.plot(ax=ax0)
 
     title_font = {'weight': 'bold', 'size': 16}

@@ -121,18 +121,15 @@ def summarise_param_set(ps_dir, summary_dir):
     """
     ps_id = get_param_set(ps_dir)
 
-    print("plotting growth curves")
-    growth_data = get_growth_data(ps_dir)
+    summaries = get_param_set_summaries(ps_dir)
 
     fig_dir = os.path.join(summary_dir, 'fig')
     if not os.path.isdir(fig_dir):
         os.mkdir(fig_dir)
 
-    growth_plot = vis_utils.plot_growth_curves(growth_data)
+    growth_plot = vis_utils.plot_growth_curves(summaries)
     plot_fpath = os.path.join(fig_dir, 'ps{}_growthcurves.png'.format(ps_id))
     growth_plot.savefig(plot_fpath)
-
-    summaries = get_param_set_summaries(ps_dir)
 
     print("writing summaries to CSV file")
     summary_fpath = os.path.join(summary_dir, 'ps{}_summary.csv'.format(ps_id))
@@ -142,22 +139,17 @@ def summarise_param_set(ps_dir, summary_dir):
     vis_utils.make_html_report(ps_id, summaries, summary_dir)
 
 
-def get_growth_data(ps_dir):
+def get_growth_data(run_dir):
     """
-    Store growth curve data from a set of simulations to a pandas.DataFrame.
+    Store growth curve data from a simulation run to a pandas DataFrame.
     """
-    run_dirs = get_run_subdirs(ps_dir)
+    growth_fpath = os.path.join(run_dir, 'tumour_size.txt')
+    growth_data = pd.read_csv(growth_fpath, sep='\t', header=None)
 
-    all_data = []
-    for run_dir in run_dirs:
-        growth_fpath = os.path.join(run_dir, 'tumour_size.txt')
-        df = pd.read_csv(growth_fpath, sep='\t', header=None)
-        # actual growth data is in first column
-        s = df[0]
-        all_data.append(s)
-
-    growth_data = pd.concat(all_data, axis=1)
-    growth_data.columns = ['run'+str(n) for n in range(1, len(run_dirs)+1)]
+    # actual growth data is in first column of CSV file
+    growth_data.pop(1)
+    # rename first column
+    growth_data.columns = ['pop_size']
 
     return growth_data
 
@@ -196,6 +188,7 @@ def generate_run_summary(run_dir):
     summary = RunSummary(run_id)
     summary.add_param_field('run_number', get_run_number(run_dir))
     add_fields_from_run_dir(summary, run_dir)
+    summary.timeseries = get_growth_data(run_dir)
     return summary
 
 
