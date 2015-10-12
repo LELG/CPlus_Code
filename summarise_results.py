@@ -156,23 +156,29 @@ def get_growth_data(run_dir):
 
         growth_data.columns = ['pop_size']
     except IOError:
-        # this is a treatment simulation, need to stitch two files together
+        # this is a treatment simulation
         init_growth_fpath = os.path.join(run_dir, 'Initial_Growth.txt')
         init_growth_data = pd.read_csv(init_growth_fpath, sep='\t', header=None)
 
-        treat_growth_fpath = os.path.join(run_dir, 'Treatment_Growth.txt')
-        treat_growth_data = pd.read_csv(treat_growth_fpath, sep='\t', header=None)
+        # need to stitch two files together, unless we're summarising the prior
+        try:
+            treat_growth_fpath = os.path.join(run_dir, 'Treatment_Growth.txt')
+            treat_growth_data = pd.read_csv(treat_growth_fpath, sep='\t', header=None)
 
-        growth_data = pd.concat([init_growth_data, treat_growth_data])
+            growth_data = pd.concat([init_growth_data, treat_growth_data])
 
-        # sanitise data: remove spurious time column,
-        # unify the indices, and replace NAs (for select_pressure) with 0s
-        growth_data.pop(1)
-        growth_data = growth_data.reset_index(drop=True)
-        growth_data = growth_data.fillna(0)
+            # sanitise data: remove spurious time column,
+            # unify the indices, and replace NAs (for select_pressure) with 0s
+            growth_data.pop(1)
+            growth_data = growth_data.reset_index(drop=True)
+            growth_data = growth_data.fillna(0)
 
-        growth_data.columns = ['pop_size', 'select_pressure']
-
+            growth_data.columns = ['pop_size', 'select_pressure']
+        except IOError:
+            # summarising the prior
+            growth_data = init_growth_data
+            growth_data.pop(1)
+            growth_data.columns = ['pop_size']
 
     return growth_data
 
@@ -395,7 +401,7 @@ def get_param_set_subdirs(dirpath):
     """
     patt = '^' + dirpath + r'/ps'
     # extra pattern to account for 'prior' param set
-    prior_patt = '^' + dirpath + r'prior'
+    prior_patt = '^' + dirpath + r'/prior'
     return get_subdirs(dirpath, patt) + get_subdirs(dirpath, prior_patt)
 
 
