@@ -189,7 +189,15 @@ def get_param_set_summaries(ps_dir):
         ps_conf_fpath = get_conf_fpath(ps_dir)
     except ValueError:
         # treatment sim
+        print("Warning: no conf file found")
         ps_conf_fpath = None
+
+    try:
+        ps_drug_fpath = get_drug_fpath(ps_dir)
+    except ValueError:
+        # not a treatment sim
+        print("Warning: no drug file found")
+        ps_drug_fpath = None
 
     nruns = len(run_dirs)
     curr = 0
@@ -202,6 +210,8 @@ def get_param_set_summaries(ps_dir):
         run_summary.add_param_field('param_set', get_param_set(ps_dir))
         if ps_conf_fpath:
             add_fields_from_conf_file(run_summary, ps_conf_fpath)
+        if ps_drug_fpath:
+            add_fields_from_drug_file(run_summary, ps_drug_fpath)
         summaries.append(run_summary)
 
     return summaries
@@ -257,6 +267,13 @@ def add_fields_from_conf_file(summary, conf_fpath):
     summary.add_param_field('mut_init', summary.param_fields.pop('mut'))
 
 
+def add_fields_from_drug_file(summary, drug_fpath):
+    """
+    Add parameters from a drug file to the summary.
+    """
+    summary.add_params_from_conf(drug_fpath)
+
+
 def add_result_fields_from_clone_stats(summary, stats_fpath, delim='\t'):
     """
     Add summary fields computed from the clone statistics file.
@@ -308,9 +325,37 @@ def get_conf_fpath(sim_dir):
     return conf_fpath
 
 
+def get_drug_fpath(sim_dir):
+    """
+    Search a directory for a drug param file, returning its filepath if found.
+
+    Raises a ValueError if either no conf file, or
+    more than one, is found.
+    """
+    drug_fpath = None
+
+    for name in os.listdir(sim_dir):
+        rel_path = os.path.join(sim_dir, name)
+        if is_drug_fpath(rel_path):
+            if not drug_fpath:
+                drug_fpath = rel_path
+            else:
+                raise ValueError("multiple drug files in dir '" + sim_dir + "'")
+
+    if not drug_fpath:
+        raise ValueError("no drug file in dir '" + sim_dir + "'")
+
+    return drug_fpath
+
+
 def is_conf_fpath(fpath):
     has_conf_extension = os.path.splitext(fpath)[1] == '.conf'
     return os.path.isfile(fpath) and has_conf_extension
+
+
+def is_drug_fpath(fpath):
+    has_drug_extension = os.path.splitext(fpath)[1] == '.drug'
+    return os.path.isfile(fpath) and has_drug_extension
 
 
 def get_simulation_id(results_dir):

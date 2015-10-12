@@ -2210,7 +2210,7 @@ namespace core {
     								istream_iterator<string>{iss}, 
                 	      			istream_iterator<string>{} 
                     	  		}; // Store the string in two different positions of the vector
-            CTX_Scheme.emplace (tokens[0], tokens[1]);
+            CTX_Scheme.emplace (tokens[0], tokens[2]);
            // cout << tokens[0] << " " << tokens[1] << endl;
 		}//end while
 		Assign_CTX_Input_Values( CTX_Scheme, Therapy );
@@ -2591,7 +2591,7 @@ namespace core {
 		unique_ptr<Treatment> const Therapy = get_Treatment_DS();
 	
 		Read_CTX(CTX_file, Therapy);
-        fs::copy_file(fs::path(CTX_file), fs::path(run_dir + "/CTX_Scheme_ID_" + to_string(myID) + ".drug"));
+        fs::copy_file(fs::path(CTX_file), fs::path(BasePath + "/CTX_Scheme_ID_" + to_string(myID) + ".drug"));
 
 		//unique_ptr<Drug> const CTX = get_Drug();
 
