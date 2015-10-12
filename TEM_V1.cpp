@@ -2839,7 +2839,7 @@ namespace core {
             // Create the destination directory
             if(!fs::create_directory(destination))
             {
-                std::cerr << "Unable to create destination directory"
+                std::cerr << "Unable to create destination directory "
                           << destination.string() << std::endl;
                 return false;
             }
@@ -3121,21 +3121,24 @@ namespace core {
             clock_t begin = clock(); // start timing simulation
 
         	if(myID == 0)
+            {
         		Tumour_Growth( CE, BasePath, myID, params );
 
+                // Copy data about the prior population to a special directory
+                string source_dir = BasePath + "/run" + to_string(params["run_number"].as<int>());
+                string prior_dir = create_Store_Directories(params) + "/prior/run" + to_string(params["run_number"].as<int>());
+                create_Dir(create_Store_Directories(params) + "/prior");
+                copy_dir(fs::path(source_dir), fs::path(prior_dir));
+
+                // record results for prior
+                double prior_cpu_secs = double(clock() - begin) / CLOCKS_PER_SEC;
+
+                string prior_results_path = prior_dir + "/results.txt";
+                // TODO replace dummy yrs/hrs/seconds with real values
+                write_results_file(CE, prior_results_path, prior_cpu_secs, 0, 0, 0);
+            }
+
         	MPI_Barrier(MPI_COMM_WORLD);
-
-            // Copy data about the prior population to a special directory
-            string source_dir = create_Store_Directories(params) + "/ps1/run" + to_string(params["run_number"].as<int>());
-            string prior_dir = create_Store_Directories(params) + "/prior/run" + to_string(params["run_number"].as<int>());
-            copy_dir(fs::path(source_dir), fs::path(prior_dir));
-
-            // record results for prior
-            double prior_cpu_secs = double(clock() - begin) / CLOCKS_PER_SEC;
-
-            string prior_results_path = prior_dir + "/results.txt";
-            // TODO replace dummy yrs/hrs/seconds with real values
-            write_results_file(CE, prior_results_path, prior_cpu_secs, 0, 0, 0);
         	
         	if(myID != 0)
         		load_Tumour_Population( CE, BasePath, myID, params );
