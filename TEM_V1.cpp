@@ -2591,7 +2591,11 @@ namespace core {
 		unique_ptr<Treatment> const Therapy = get_Treatment_DS();
 	
 		Read_CTX(CTX_file, Therapy);
-        fs::copy_file(fs::path(CTX_file), fs::path(BasePath + "/CTX_Scheme_ID_" + to_string(myID) + ".drug"));
+        fs::path copy_dest = fs::path(BasePath + "/CTX_Scheme_ID_" + to_string(myID) + ".drug");
+        if (!fs::exists(copy_dest))
+        {
+            fs::copy_file(fs::path(CTX_file), copy_dest);
+        }
 
 		//unique_ptr<Drug> const CTX = get_Drug();
 
