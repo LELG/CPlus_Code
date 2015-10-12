@@ -76,6 +76,14 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 #include "parser.hpp"
 
+#define MPI_CHECK(cmd)                                            \
+    {int error = cmd;                                             \
+        if(error!=MPI_SUCCESS)                                    \
+        {                                                         \
+            printf("<%s>:%i ",__FILE__,__LINE__);                 \
+            throw std::runtime_error(std::string("[MPI] Error")); \
+        }                                                         \
+    }
 
 /******************************* Constant Varaible Definitions *******************************/
 
@@ -2962,12 +2970,12 @@ namespace core {
 		vector<char> nonconst_str(str.begin(), str.end());
 		nonconst_str.push_back('\0');
 
-		MPI_Send(&len, 1, MPI_UNSIGNED, dest, tag, comm);
+		MPI_CHECK(MPI_Send(&len, 1, MPI_UNSIGNED, dest, tag, comm));
 		if (len != 0){
-			MPI_Send(&nonconst_str[0], len, MPI_CHAR, dest, tag, comm);
+			MPI_CHECK(MPI_Send(&nonconst_str[0], len, MPI_CHAR, dest, tag, comm));
 			cout << "Message sent " << endl;
 		}
-		//MPI_Send(&PingPongCount, 1, MPI_INT, yourID,0, MPI_COMM_WORLD );
+		//MPI_CHECK(MPI_Send(&PingPongCount, 1, MPI_INT, yourID,0, MPI_COMM_WORLD ));
 	}
 
 	void recv(string& str, int src, int tag, MPI_Comm comm)
@@ -2975,13 +2983,13 @@ namespace core {
 		unsigned len;
 		MPI_Status s;
 		cout << "Sending  " <<endl;
-		MPI_Recv(&len, 1, MPI_UNSIGNED, src, tag, comm, &s);
+		MPI_CHECK(MPI_Recv(&len, 1, MPI_UNSIGNED, src, tag, comm, &s));
 		cout << "RECV len:  " << len << endl;
 
 		if(len != 0)
 		{
 			vector<char> tmp(len);
-			MPI_Recv(tmp.data(), len, MPI_CHAR, src, tag, comm, &s);
+			MPI_CHECK(MPI_Recv(tmp.data(), len, MPI_CHAR, src, tag, comm, &s));
 			str.assign(tmp.begin(), tmp.end());
 		}
 		else
@@ -3041,12 +3049,12 @@ namespace core {
             clock_t begin = clock(); // start timing simulation
 
 			compute_Tumour_Evolution( CE,  BasePath, myID, params );
-        	//MPI_Barrier(MPI_COMM_WORLD);
+        	//MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
         	Purge_Death_Clones( CE );
-        	//MPI_Barrier(MPI_COMM_WORLD);
+        	//MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
         	treatment( CE, BasePath, myID, DEFAULT_TREATMENT_FILE, params);
         	cout << "Porcess " << myID << " DONE " <<endl;
-        	//MPI_Barrier(MPI_COMM_WORLD);
+        	//MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
             clock_t end = clock(); // finish timing simulation
             double cpu_secs = double(end - begin) / CLOCKS_PER_SEC;
@@ -3055,7 +3063,7 @@ namespace core {
             // TODO replace dummy yrs/hrs/seconds with real values
             write_results_file(CE, results_path, cpu_secs, 0, 0, 0);
 
-        	MPI_Finalize();
+        	MPI_CHECK(MPI_Finalize());
         	//Decide to save alive population
 	}
 
@@ -3078,7 +3086,7 @@ namespace core {
 	{
 
 		compute_Tumour_Evolution( CE,  BasePath, myID, params );
-        //MPI_Barrier(MPI_COMM_WORLD);
+        //MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
         Purge_Death_Clones( CE );
         Store_ALL_Population_Stats(CE, BasePath +"/run" + to_string(params["run_number"].as<int>()) + "/" + "Alive_Clones_Prior.txt");
 
@@ -3112,7 +3120,7 @@ namespace core {
         //	cout << "Porcess " << myID << " PRINT CLONE " <<endl;
         //	print_Clone_DS(CE -> Tumour -> at(ith_clone));   
         //}   
-        //MPI_Barrier(MPI_COMM_WORLD); 	
+        //MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD)); 	
         
 	}
 
@@ -3142,12 +3150,12 @@ namespace core {
                 write_results_file(CE, prior_results_path, prior_cpu_secs, 0, 0, 0);
             }
 
-        	MPI_Barrier(MPI_COMM_WORLD);
+        	MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
         	
         	if(myID != 0)
         		load_Tumour_Population( CE, BasePath, myID, params );
 
-        	MPI_Barrier(MPI_COMM_WORLD);
+        	MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
         	Drug_Trial( CE, BasePath, myID, params);
 
             clock_t end = clock(); // finish timing simulation
@@ -3157,7 +3165,7 @@ namespace core {
             // TODO replace dummy yrs/hrs/seconds with real values
             write_results_file(CE, results_path, cpu_secs, 0, 0, 0);
         
-        	MPI_Finalize();
+        	MPI_CHECK(MPI_Finalize());
         }//else
 
 	}//Function
@@ -3183,7 +3191,7 @@ namespace core {
         // TODO replace dummy yrs/hrs/seconds with real values
         write_results_file(CE, results_path, cpu_secs, 0, 0, 0);
 
-        MPI_Finalize();
+        MPI_CHECK(MPI_Finalize());
 	}//Function
 
 
@@ -3212,9 +3220,9 @@ int main( int argc, char** argv )
 
   	unique_ptr<Clonal_Expansion> const CE = get_Clonnal_Expansion_DS();
 
-	MPI_Init(&argc, &argv);
-	MPI_Comm_rank(MPI_COMM_WORLD,	&myID); 
-	MPI_Comm_size(MPI_COMM_WORLD,	&N_Procs);
+	MPI_CHECK(MPI_Init(&argc, &argv));
+	MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD,	&myID)); 
+	MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD,	&N_Procs));
 
 
 
@@ -3233,9 +3241,9 @@ int main( int argc, char** argv )
         /*
 			Wait all processes to enter the follwing section of code
         */
-        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
         BasePath = generate_subfolders( BasePath,  myID, to_string(params["run_number"].as<int>()) );
-        MPI_Barrier(MPI_COMM_WORLD);// This Barrier may be omitted
+        MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));// This Barrier may be omitted
 
         if(N_Procs > 1)
         	Simulate_Tumour_Evolution( CE, BasePath, myID, params );
@@ -3253,7 +3261,7 @@ int main( int argc, char** argv )
     gsl_rng_free (r_global);
 
     
-    MPI_Finalize();
+    MPI_CHECK(MPI_Finalize());
 	return EXIT_SUCCESS;
 
 }
