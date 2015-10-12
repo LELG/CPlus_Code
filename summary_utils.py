@@ -176,9 +176,16 @@ class RunSummary(object):
         Add summary fields from a csv file.
 
         This assumes that every field in the CSV file should
-        be stored to the summary. It will also only take values
-        from the first row of the file; any later rows will be ignored!
-        Also assumes CSV file has a header identifying the fields.
+        be stored to the summary.
+
+        Params
+        ------
+        fpath : string or file handle / StringIO
+            Path to CSV file
+        field_type : either 'results' or 'params'
+            Type of field stored in CSV file
+        delim : string, default ','
+            CSV delimiter to use
         """
         with open(fpath) as results_f:
             reader = csv.DictReader(results_f, delimiter=delim)
