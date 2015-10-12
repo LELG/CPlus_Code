@@ -122,15 +122,15 @@ class RunSummary(object):
 
     def add_results_from_conf(self, fpath):
         """
-        Add simulation results from a CSV file.
+        Add simulation results from a var=val conf file.
         """
-        self.add_from_csv(fpath, field_type='results')
+        self.add_from_conf(fpath, field_type='results')
 
     def add_params_from_conf(self, fpath):
         """
-        Add simulation parameters from a CSV file.
+        Add simulation parameters from a var=val conf file.
         """
-        self.add_from_csv(fpath, field_type='params')
+        self.add_from_conf(fpath, field_type='params')
 
     def add_from_conf(self, fpath, field_type):
         """
