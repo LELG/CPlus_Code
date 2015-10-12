@@ -93,6 +93,9 @@ def make_html_report(ps_id, summaries, summary_dir):
                         'summary_data': pd.DataFrame(data.describe()).to_html()}
         summary_output.append(summary_info)
 
+    # guard against memory leaks
+    plt.close('all')
+
     TEMPLATE = """\
     <!DOCTYPE html>
     <html lang="en">
