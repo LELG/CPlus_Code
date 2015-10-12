@@ -64,9 +64,12 @@ def plot_growth_curves(summaries):
     return fig
 
 
-def make_html_report(ps_id, summaries, summary_dir):
+def make_html_report(ps_id, summaries, summary_dir, link_to_prior=False):
     """
     Generate a HTML report summarising per-param set results from a test group.
+
+    Optionally include links to results for a 'prior' distribution
+    (the links are currently hardcoded).
     """
     fields_to_summarise = ['num_clones', 'prolif_final_avg', 'mut_final_avg', 'dom_clone_proportion']
 
@@ -122,11 +125,18 @@ def make_html_report(ps_id, summaries, summary_dir):
         <img src="{{ gc_fig }}" alt="growth curves">
 
         {% for summary in summary_dicts %}
-        <hr>
+        <div id="{{ summary['field_name'] }}"><a name="{{ summary['field_name'] }}"></a>
+            <hr>
+
+            {% if link_to_prior %}
+                <p>See <a href="psprior_report.html#{{ summary['field_name'] }}">prior distribution for {{ summary['field_name'] }}</a>.</p>
+            {% else %}
+            {% endif %}
 
             <h2>Summary: {{ summary['field_name'] }}</h2>
             <img src="{{ summary['plot_fpath'] }}" alt="summary plot for {{ summary['field_name'] }}">
-            <p>{{ summary['summary_data'] }}</p>
+            {{ summary['summary_data'] }}
+        </div>
 
         {% endfor %}
     </body>
@@ -143,5 +153,6 @@ def make_html_report(ps_id, summaries, summary_dir):
         report = report_template.render(report_title=report_title,
                                         params=all_params,
                                         gc_fig=gc_fpath,
-                                        summary_dicts=summary_output)
+                                        summary_dicts=summary_output,
+                                        link_to_prior=link_to_prior)
         report_file.write(report)

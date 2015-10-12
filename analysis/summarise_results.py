@@ -111,16 +111,21 @@ def summarise_sim_group(results_dir):
 
     param_set_dirs = get_param_set_subdirs(results_dir)
 
+    treatment = False
+    for ps_dir in param_set_dirs:
+        if "prior" in ps_dir:
+            treatment = True
+
     n_psets = len(param_set_dirs)
     curr = 0
 
     for ps_dir in param_set_dirs:
         curr += 1
         print("summarising ps {} / {}".format(curr, n_psets))
-        summarise_param_set(ps_dir, summary_dir)
+        summarise_param_set(ps_dir, summary_dir, treatment)
 
 
-def summarise_param_set(ps_dir, summary_dir):
+def summarise_param_set(ps_dir, summary_dir, treatment=False):
     """
     Summarise the param set stored in ps_dir, writing results to summary_dir.
     """
@@ -141,7 +146,11 @@ def summarise_param_set(ps_dir, summary_dir):
     write_summaries_to_file(summaries, summary_fpath)
 
     print("generating html report")
-    vis_utils.make_html_report(ps_id, summaries, summary_dir)
+    if treatment and ps_id != 'prior':
+        link_to_prior = True
+    else:
+        link_to_prior = False
+    vis_utils.make_html_report(ps_id, summaries, summary_dir, link_to_prior)
 
 
 def get_growth_data(run_dir):
