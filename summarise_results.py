@@ -349,7 +349,9 @@ def get_param_set_subdirs(dirpath):
     Get a list of param set subdirectories of a test group directory.
     """
     patt = '^' + dirpath + r'/ps'
-    return get_subdirs(dirpath, patt)
+    # extra pattern to account for 'prior' param set
+    prior_patt = '^' + dirpath + r'prior'
+    return get_subdirs(dirpath, patt) + get_subdirs(dirpath, prior_patt)
 
 
 def get_run_subdirs(dirpath):
