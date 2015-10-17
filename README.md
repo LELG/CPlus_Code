@@ -119,7 +119,7 @@ Drug parameters should be stored in an INI-like config file:
     ...
 
 The file should have a '.drug' extension. (In fact, as currently implemented,
-the file must be named 'CTX_Scheme_ID_<num>.drug' where <num> is the processor
+the file must be named 'CTX_Scheme_ID_<em>&lt;num&gt;</em>.drug' where <em>&lt;num&gt;</em> is the processor
 number that will access the file.) The spaces around the '=' are optional.
 
 ## Contact ##
