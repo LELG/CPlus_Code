@@ -74,16 +74,16 @@ po::variables_map parse_options(int argc, char *argv[], std::ostream& out)
              "= directory for this particular param set")
         ("run_dir", po::value<std::string>()->value_name("<dir>")->default_value("temp"),
              "= directory for this replicate run")
-        ("r_output", po::bool_switch()->default_value(false),
-             "= produce output in R")
-        ("auto_treatment", po::bool_switch()->default_value(false),
-             "= automatically introduce treatment at size limit")
-        ("no_plots", po::bool_switch()->default_value(false),
-             "= do not generate plots")
-        ("prune_clones", po::bool_switch()->default_value(false),
-             "= remove dead clones from population")
-        ("prune_muts", po::bool_switch()->default_value(false),
-             "= remove dead mutations from population")
+        // ("r_output", po::bool_switch()->default_value(false),
+             // "= produce output in R")
+        // ("auto_treatment", po::bool_switch()->default_value(false),
+             // "= automatically introduce treatment at size limit")
+        // ("no_plots", po::bool_switch()->default_value(false),
+             // "= do not generate plots")
+        // ("prune_clones", po::bool_switch()->default_value(false),
+             // "= remove dead clones from population")
+        // ("prune_muts", po::bool_switch()->default_value(false),
+             // "= remove dead mutations from population")
         ("mode", po::value<Mode>()->value_name("{in_vivo, cell_line}")->default_value(in_vivo, "in_vivo"),
             "= simulation mode")
     ;
@@ -94,7 +94,7 @@ po::variables_map parse_options(int argc, char *argv[], std::ostream& out)
             "= maximum cycles in simulation")
         ("max_size_lim", po::value<int>()->default_value(1e9, "1e9")->value_name("<int>"),
             "= population size limit, aka carrying capacity")
-        ("detectable_size", po::value<int>()->default_value(1e9, "1e9")->value_name("<int>"),
+        ("detectable_size_lim", po::value<int>()->default_value(1e9, "1e9")->value_name("<int>"),
             "= population size at which tumour is detectable (triggers treatment)")
         ("mid_doublings", po::value<int>()->default_value(30)->value_name("<int>"),
             "= in cell_line mode: number of doublings at halfway point")
@@ -134,59 +134,59 @@ po::variables_map parse_options(int argc, char *argv[], std::ostream& out)
             "= initial mutation rate")
         ("quiesc", po::value<double>()->default_value(0.005, "0.005")->value_name("<float>"),
             "= rate of quiescence")
-        ("init_size", po::value<int>()->value_name("<int>"),
-            "= size of initial clone")
-        ("init_diversity", po::value<std::vector<std::string> >()->multitoken()->value_name("<clone file> <mut file>"),
-            "= specify a heterogeneous initial population, stored in clone and mutation files")
+        // ("init_size", po::value<int>()->value_name("<int>"),
+            // "= size of initial clone")
+        // ("init_diversity", po::value<std::vector<std::string> >()->multitoken()->value_name("<clone file> <mut file>"),
+            // "= specify a heterogeneous initial population, stored in clone and mutation files")
     ;
 
-    po::options_description treatmt_params{ "Treatment parameters" };
-    treatmt_params.add_options()
-        ("treatment_type", po::value<TreatmentType>()
-                           ->value_name("{single_dose, metronomic, adaptive, none}")
-                           ->default_value(single_dose, "single_dose"),
-            "= treatment type")
-        ("decay_type", po::value<DecayType>()
-                       ->value_name("{constant, linear, exp}")
-                       ->default_value(constant, "constant"),
-            "= treatment decay type")
-        ("decay_rate", po::value<double>()->default_value(0.0)->value_name("<float>"),
-            "= treatment decay rate")
-        ("treatment_freq", po::value<int>()->default_value(100)->value_name("<int>"),
-            "= treatment frequency")
-        ("adaptive_increment", po::value<double>()->default_value(0.001, "0.001")->value_name("<float>"),
-            "= adaptive treatment: size of incremental dosage changes")
-        ("adaptive_threshold", po::value<double>()->default_value(0.025, "0.025")->value_name("<float>"),
-            "= adaptive treatment: change in tumour size that triggers dosage change")
-        ("select_time", po::value<int>()->default_value(4e5, "4e5")->value_name("<int>"),
-            "= time to manually introduce selective pressure")
-        ("select_pressure", po::value<double>()->default_value(0.01, "0.01")->value_name("<float>"),
-            "= initial value of selective pressure")
-        ("mutagenic_pressure", po::value<double>()->default_value(0.0)->value_name("<float>"),
-            "= initial value of mutagenic pressure")
-    ;
+    // po::options_description treatmt_params{ "Treatment parameters" };
+    // treatmt_params.add_options()
+        // ("treatment_type", po::value<TreatmentType>()
+                           // ->value_name("{single_dose, metronomic, adaptive, none}")
+                           // ->default_value(single_dose, "single_dose"),
+            // "= treatment type")
+        // ("decay_type", po::value<DecayType>()
+                       // ->value_name("{constant, linear, exp}")
+                       // ->default_value(constant, "constant"),
+            // "= treatment decay type")
+        // ("decay_rate", po::value<double>()->default_value(0.0)->value_name("<float>"),
+            // "= treatment decay rate")
+        // ("treatment_freq", po::value<int>()->default_value(100)->value_name("<int>"),
+            // "= treatment frequency")
+        // ("adaptive_increment", po::value<double>()->default_value(0.001, "0.001")->value_name("<float>"),
+            // "= adaptive treatment: size of incremental dosage changes")
+        // ("adaptive_threshold", po::value<double>()->default_value(0.025, "0.025")->value_name("<float>"),
+            // "= adaptive treatment: change in tumour size that triggers dosage change")
+        // ("select_time", po::value<int>()->default_value(4e5, "4e5")->value_name("<int>"),
+            // "= time to manually introduce selective pressure")
+        // ("select_pressure", po::value<double>()->default_value(0.01, "0.01")->value_name("<float>"),
+            // "= initial value of selective pressure")
+        // ("mutagenic_pressure", po::value<double>()->default_value(0.0)->value_name("<float>"),
+            // "= initial value of mutagenic pressure")
+    // ;
 
-    po::options_description resist_params{ "Resistance parameters" };
-    resist_params.add_options()
-        ("resistance", po::bool_switch()->default_value(false),
-            "= generate pre-existing resistance mutations")
-        ("num_resist_mutns", po::value<int>()->value_name("<int>"),
-            "= determine how many resistance mutations to generate")
-        ("resist_strength", po::value<double>()->default_value(1.0, "1.0")->value_name("<float>"),
-            "= strength of resistance mutations (between 0 and 1)")
-    ;
+    // po::options_description resist_params{ "Resistance parameters" };
+    // resist_params.add_options()
+        // ("resistance", po::bool_switch()->default_value(false),
+            // "= generate pre-existing resistance mutations")
+        // ("num_resist_mutns", po::value<int>()->value_name("<int>"),
+            // "= determine how many resistance mutations to generate")
+        // ("resist_strength", po::value<double>()->default_value(1.0, "1.0")->value_name("<float>"),
+            // "= strength of resistance mutations (between 0 and 1)")
+    // ;
 
-    po::options_description saving_loading{ "Saving/Loading" };
-    saving_loading.add_options()
-        ("save_snapshot", po::bool_switch()->default_value(false),
-            "= save a population snapshot when population reaches size limit")
-        ("load_snapshot", po::value<std::string>()->value_name("<path to archive>"),
-            "= load a snapshot from the specified archive")
-    ;
+    // po::options_description saving_loading{ "Saving/Loading" };
+    // saving_loading.add_options()
+        // ("save_snapshot", po::bool_switch()->default_value(false),
+            // "= save a population snapshot when population reaches size limit")
+        // ("load_snapshot", po::value<std::string>()->value_name("<path to archive>"),
+            // "= load a snapshot from the specified archive")
+    // ;
 
     po::options_description all("SIMULATION OPTIONS");
-    all.add(general).add(bounds).add(probabilities).add(tumour_params)
-       .add(treatmt_params).add(resist_params).add(saving_loading);
+    all.add(general).add(bounds).add(probabilities).add(tumour_params);
+       // .add(treatmt_params).add(resist_params).add(saving_loading);
 
     po::variables_map vm;
 
