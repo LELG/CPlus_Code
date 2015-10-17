@@ -92,9 +92,9 @@ po::variables_map parse_options(int argc, char *argv[], std::ostream& out)
     bounds.add_options()
         ("max_cycles", po::value<int>()->default_value(1e5, "1e5")->value_name("<int>"),
             "= maximum cycles in simulation")
-        ("max_size_lim", po::value<int>()->default_value(1e9, "1e9")->value_name("<int>"),
+        ("max_size_lim", po::value<unsigned long long>()->default_value(1e9, "1e9")->value_name("<int>"),
             "= population size limit, aka carrying capacity")
-        ("detectable_size_lim", po::value<int>()->default_value(1e9, "1e9")->value_name("<int>"),
+        ("detectable_size_lim", po::value<unsigned long long>()->default_value(1e9, "1e9")->value_name("<int>"),
             "= population size at which tumour is detectable (triggers treatment)")
         ("mid_doublings", po::value<int>()->default_value(30)->value_name("<int>"),
             "= in cell_line mode: number of doublings at halfway point")

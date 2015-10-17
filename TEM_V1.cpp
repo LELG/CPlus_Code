@@ -1318,7 +1318,7 @@ namespace core {
         double die = CE->params["die"].as<double>();
         double diff = pro - die;
 
-        double pop_size = (double) CE->params["max_size_lim"].as<int>();
+        double pop_size = (double) CE->params["max_size_lim"].as<unsigned long long>();
 
 		CE -> feedback =  0.0 + (diff - 0.0) * (( (double) CE -> Population_Size - 0.0) / ((double) pop_size - 0.0));	
 	}
@@ -1342,7 +1342,7 @@ namespace core {
 
 		double diff = avg/((double) k * scale);
 
-        double pop_size = (double) CE->params["max_size_lim"].as<int>();
+        double pop_size = (double) CE->params["max_size_lim"].as<unsigned long long>();
 
 		CE -> feedback = 0.0 + (diff - 0.0) * (( (double) CE -> Population_Size - 0.0) / ((double) pop_size - 0.0));	
 	}//map_feedback
@@ -1777,7 +1777,7 @@ namespace core {
 
 	unsigned int Abort_Condition(unique_ptr<Clonal_Expansion> const & CE, unsigned int times_to_wait)
 	{
-        int detectable_size = CE->params["detectable_size_lim"].as<int>();
+        unsigned long long detectable_size = CE->params["detectable_size_lim"].as<unsigned long long>();
 		if( CE -> Population_Size >  detectable_size )
   			times_to_wait++;
 
@@ -3246,6 +3246,7 @@ int main( int argc, char** argv )
         else
         	Simulate_StandAlone_Tumour_Evolution( CE, BasePath,  myID, params );
 
+        MPI_CHECK(MPI_Finalize());
         return EXIT_SUCCESS;
 
     }//try code
@@ -3256,9 +3257,5 @@ int main( int argc, char** argv )
     }
     gsl_rng_free (r_global);
 
-    
-    MPI_CHECK(MPI_Finalize());
 	return EXIT_SUCCESS;
-
 }
-
