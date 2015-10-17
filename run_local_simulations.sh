@@ -113,8 +113,6 @@ echo "$file_no_comments" | sed 1d | while read -r line; do
 
   printf "==> Writing parameter set to config file ...\r"
 
-  # the following code generates a configuration file that can be passed
-  # directly into an argparse.ArgumentParser object
   i=0
   while [ $i -lt $num_params ]; do
     param_name=${param_names[i]}

@@ -94,16 +94,7 @@ namespace po = boost::program_options;
 
 /************ MODEL PARAMETERS ************/
 
-const double MUT_RATE = 0.0002002;//0.0002002
-const double DEATH_RATE = 0.02;
-const double PROLIFERATION_RATE = 0.03;
-
-const unsigned long long MAXIMUM_POPULATION_SIZE =   3000000000; //1000000000;
-const double  PS = (double) MAXIMUM_POPULATION_SIZE;
-
-const unsigned long long DETECTABLE_POPULATION_SIZE =    400000; //1000000000;
 const unsigned int STOP_GROWTH_AFTER_DIAGNOSIS = 10; //[hours]
-
 const bool SAVE_CLONAL_EVOLUTION = false;
 
 /* Main path of the model */
@@ -118,7 +109,6 @@ const bool PRINT = true;
 
 /************ MODEL PARAMETERS Don't modify these ************/
 
-const double DIFF = PROLIFERATION_RATE - DEATH_RATE ;
 const unsigned int dt = 3600;
 
 const bool MULTIPLE_TUMOURS = false;
@@ -305,12 +295,12 @@ namespace core {
 						clone(P_Ben) --> if desired
 
 		*****************************************************/
-        Clone(void):
+        Clone(po::variables_map params):
 			
 				Number_of_Memebers_to_Start_Heterogeneity(27),
 				Generation_ID_Counter(0),
 				clone_extinct(0),
-				Mutation_Rate(MUT_RATE),
+				Mutation_Rate(params["mut"].as<double>()),
 				Number_of_Mutations(0),
 				Clone_Size(0),
 				Initiall_Expasion_Period(0),
@@ -319,7 +309,7 @@ namespace core {
 				In_S_Phase(0),
 				In_G2_Phase(0),
 				In_M_Phase(0),
-				P_Expansion{DEATH_RATE, PROLIFERATION_RATE, 1.0-(DEATH_RATE + PROLIFERATION_RATE)},
+				P_Expansion{params["die"].as<double>(), params["pro"].as<double>(), 1.0-(params["die"].as<double>() + params["pro"].as<double>())},
 				Remaining_Time_in_G1_Phase(0),
 				Remaining_Time_in_S_Phase(0),
 				Remaining_Time_in_G2_Phase(0),
@@ -339,9 +329,9 @@ namespace core {
 		and guaratee a unique scope of the DS.
 
     ********************************************/
-    unique_ptr<Clone> get_Clone_DS()
+    unique_ptr<Clone> get_Clone_DS(po::variables_map params)
     {
-        return unique_ptr<Clone>( new Clone( ) );
+        return unique_ptr<Clone>( new Clone( params ) );
     } // end function
 
     /* DS Clonal_Expansion */
@@ -352,7 +342,7 @@ namespace core {
 		unsigned long long int Population_Size;
 		//unsigned long long int Quiescent_Size;
 		
-		
+        po::variables_map params;
 		double feedback; // This is the output of a proportional control system
 		
 		/**
@@ -369,9 +359,10 @@ namespace core {
 		 vector<unique_ptr<Clone> > *Tumour = new vector<unique_ptr<Clone> >;
 
 		/* CONSTRUCTOR */
-		Clonal_Expansion(void) :
+		Clonal_Expansion(po::variables_map params) :
 				 				
 				 				Population_Size 			( 0   ),
+                                params                      (params),
 			 					feedback 					( 0.0 )
 			 					{ 									}
 		~Clonal_Expansion() 
@@ -385,9 +376,9 @@ namespace core {
 		unique pointer of type Clonal_Expansion. 
 
     ******************************************************/
-	unique_ptr<Clonal_Expansion> get_Clonnal_Expansion_DS()
+	unique_ptr<Clonal_Expansion> get_Clonnal_Expansion_DS(po::variables_map params)
 	{
-		return unique_ptr<Clonal_Expansion>( new Clonal_Expansion() );
+		return unique_ptr<Clonal_Expansion>( new Clonal_Expansion(params) );
 	}// end function
 
 	struct Drug
@@ -698,7 +689,7 @@ namespace core {
 		if(CE)// is the pointer NUL?
 		{	
 		
-			CE -> Tumour -> push_back( get_Clone_DS() );// We update the size that way
+			CE -> Tumour -> push_back( get_Clone_DS(CE->params) );// We update the size that way
 			//CE -> Tumour -> back() -> Progenitor_Ready_to_Reproduce = false;
 			CE -> Tumour -> back() -> Initiall_Expasion_Period = true;
 			CE -> Tumour -> back() -> Clone_Size = 1;
@@ -1270,7 +1261,7 @@ namespace core {
 			CE -> Tumour -> at(Generation_ID) -> Generation_ID_Counter++;
 
 
-			CE -> Tumour -> push_back( get_Clone_DS() );// We update the size that way
+			CE -> Tumour -> push_back( get_Clone_DS(CE->params) );// We update the size that way
 			CE -> Tumour -> back() -> Generation_ID = Clone_Name;
 			
 			CE -> Tumour -> back() -> Initiall_Expasion_Period = false;//true
@@ -1323,8 +1314,13 @@ namespace core {
 	void map_Feedback_orig( unique_ptr<Clonal_Expansion> const & CE )
 	{
 		//cout << "DR : "<< death_rate << " Pop: " << Pop_Size << " CV: " << Current_Population_Size << endl;
+        double pro = CE->params["pro"].as<double>();
+        double die = CE->params["die"].as<double>();
+        double diff = pro - die;
 
-		CE -> feedback =  0.0 + (DIFF - 0.0) * (( (double) CE -> Population_Size - 0.0) / ((double) PS - 0.0));	
+        double pop_size = (double) CE->params["max_size_lim"].as<int>();
+
+		CE -> feedback =  0.0 + (diff - 0.0) * (( (double) CE -> Population_Size - 0.0) / ((double) pop_size - 0.0));	
 	}
 
 	/*
@@ -1346,7 +1342,9 @@ namespace core {
 
 		double diff = avg/((double) k * scale);
 
-		CE -> feedback = 0.0 + (diff - 0.0) * (( (double) CE -> Population_Size - 0.0) / ((double) PS - 0.0));	
+        double pop_size = (double) CE->params["max_size_lim"].as<int>();
+
+		CE -> feedback = 0.0 + (diff - 0.0) * (( (double) CE -> Population_Size - 0.0) / ((double) pop_size - 0.0));	
 	}//map_feedback
 
 	void Size_Dependent_Penalty(unique_ptr<Clonal_Expansion> const & CE)
@@ -1779,7 +1777,8 @@ namespace core {
 
 	unsigned int Abort_Condition(unique_ptr<Clonal_Expansion> const & CE, unsigned int times_to_wait)
 	{
-		if( CE -> Population_Size >  DETECTABLE_POPULATION_SIZE )
+        int detectable_size = CE->params["detectable_size_lim"].as<int>();
+		if( CE -> Population_Size >  detectable_size )
   			times_to_wait++;
 
   		return times_to_wait;
@@ -2673,7 +2672,7 @@ namespace core {
 
 	void add_Clone_to_DS(unique_ptr<Clonal_Expansion> const & CE, vector<string> tokens)
 	{
-		CE -> Tumour -> push_back( get_Clone_DS() );
+		CE -> Tumour -> push_back( get_Clone_DS(CE->params) );
 		CE -> Tumour -> back() -> Number_of_Memebers_to_Start_Heterogeneity = stoul(tokens[1], nullptr,0);
 		CE -> Tumour -> back() -> Generation_ID_Counter = stoul(tokens[2], nullptr,0);
 		CE -> Tumour -> back() -> clone_extinct = ToBool(tokens[3]);
@@ -3218,20 +3217,17 @@ int main( int argc, char** argv )
   	seed = time (NULL) * getpid();    
   	gsl_rng_set (r_global, seed);  
 
-  	unique_ptr<Clonal_Expansion> const CE = get_Clonnal_Expansion_DS();
-
-	MPI_CHECK(MPI_Init(&argc, &argv));
-	MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD,	&myID)); 
-	MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD,	&N_Procs));
-
-
-
-  	if(myID == 0)
-  		print_Clonal_Expansion_DS(CE);
-
     try
     {
         po::variables_map params = parser::parse_options(argc, argv, cout);
+        unique_ptr<Clonal_Expansion> const CE = get_Clonnal_Expansion_DS(params);
+
+        MPI_CHECK(MPI_Init(&argc, &argv));
+        MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD,	&myID)); 
+        MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD,	&N_Procs));
+
+        if(myID == 0)
+            print_Clonal_Expansion_DS(CE);
 
         if(myID == 0)
         	BasePath = Path_Bcast_From_Master( MPI_COMM_WORLD, params);
