@@ -312,9 +312,13 @@ def add_result_fields_from_clone_stats(summary, stats_fpath, delim='\t'):
             agg_mut += float(row['Mutation_Rate'])
             nclones += 1
 
-    summary.add_result_field('prolif_final_avg', agg_prolif/nclones)
-    summary.add_result_field('mut_final_avg', agg_mut/nclones)
-    summary.add_result_field('dom_clone_proportion', float(dominant_clone_size)/tumour_size)
+    avg_prolif = agg_prolif/nclones if nclones > 0 else 0
+    avg_mut = agg_mut/nclones if nclones > 0 else 0
+    dom_prop = float(dominant_clone_size)/tumour_size if tumour_size > 0 else 0
+
+    summary.add_result_field('prolif_final_avg', avg_prolif)
+    summary.add_result_field('mut_final_avg', avg_mut)
+    summary.add_result_field('dom_clone_proportion', dom_prop)
 
 
 def get_conf_fpath(sim_dir):
