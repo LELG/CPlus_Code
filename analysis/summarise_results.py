@@ -4,10 +4,33 @@ A script for crawling a simulation results directory,
 generating summary files, plots and reports from the data,
 and, optionally, compressing the raw results.
 
-NOTE: This script will become outdated if the structure
-of the simulation results directory changes, or if
-at a future point the results are stored in a database
-instead of a directory.
+NOTE:
+
+The script expects simulation results with the following format/structure:
+
+    root_results_dir/ps1
+                    /ps2
+                    /ps3/run1
+                        /run2
+                        /run3
+
+The name of root_results_dir is not significant, but it is assumed that all
+parameter set directories to summarise will be named 'ps<number>' (or 'prior' in
+the case of a treatment simulation), and that all replicate run directories
+will be named 'run<number>'.
+
+For a non-treatment simulation, it assumes that a configuration file will
+be located in the param set directory, while all other simulation results
+will be stored in the replicate run directories.
+
+For a treatment simulation, it assumes that a drug configuration file
+will be located in the param set directory, with all other sim results
+stored in the replicate run directories. There should be a parameter set
+folder called 'prior' that contains a complete set of results for the
+simulation *before* treatment was introduced.
+
+If, in future, this structure changes, or a database is used to store
+sim results, this script will need to be dramatically rewritten.
 
 AUTHOR
     Yoshua Wakeham
