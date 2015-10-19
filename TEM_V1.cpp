@@ -2820,7 +2820,7 @@ namespace core {
 	{
 		struct stat st = {0};
 		if (stat(path.c_str(), &st) == -1) 
-    		mkdir(path.c_str(), 0700);
+    		mkdir(path.c_str(), 0775);
 	}
 
     /*
@@ -2906,7 +2906,7 @@ namespace core {
 		{
 			string Clonal_Evolution = path +"Clonal_Evolution";
 			if (stat(Clonal_Evolution.c_str(), &st) == -1) 
-    			mkdir(Clonal_Evolution.c_str(), 0700);
+    			mkdir(Clonal_Evolution.c_str(), 0775);
 		}
 
         create_Dir(path + "run" + run_number);
