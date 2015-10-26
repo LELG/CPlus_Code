@@ -36,7 +36,7 @@ message(status "** GSL Libraries: ${GSL_LIBRARIES}")
 
 add_executable (testParser test/test_parser.cpp test/test_main.cpp test/catch.hpp parser.cpp)
 add_executable (tumourSim V1_Main_Tumour_Evoulution.cpp parser.cpp Random.cpp)
-add_executable (tumourSimTreatment TEM_V1.cpp)
+add_executable (tumourSimTreatment TEM_V1.cpp parser.cpp)
 
 include_directories("${Boost_INCLUDE_DIR}")
 include_directories("${GSL_INCLUDE_DIR}")
@@ -50,7 +50,7 @@ set_target_properties(tumourSim PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
 target_link_libraries(testParser ${Boost_LIBRARIES})
 target_link_libraries(tumourSim ${Boost_LIBRARIES})
 target_link_libraries(tumourSim ${GSL_LIBRARIES})
-target_link_libraries(tumourSimTreatment ${GSL_LIBRARIES} ${MPI_LIBRARIES})
+target_link_libraries(tumourSimTreatment ${GSL_LIBRARIES} ${MPI_LIBRARIES} ${Boost_LIBRARIES})
 
 if(MPI_COMPILE_FLAGS)
   set_target_properties(tumourSimTreatment PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")

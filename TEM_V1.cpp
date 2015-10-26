@@ -65,7 +65,25 @@ Supervisor:    David Goode, PhD
 #include <initializer_list>
 #include <mpi.h>	// Needs to be included in order to use MPI
 
+#define BOOST_NO_CXX11_SCOPED_ENUMS
+#include <boost/filesystem.hpp>
+#undef BOOST_NO_CXX11_SCOPED_ENUMS
+namespace fs = boost::filesystem;
+#include <boost/format.hpp>
 
+// includes for cmd line parsing
+#include <boost/program_options.hpp>
+namespace po = boost::program_options;
+#include "parser.hpp"
+
+#define MPI_CHECK(cmd)                                            \
+    {int error = cmd;                                             \
+        if(error!=MPI_SUCCESS)                                    \
+        {                                                         \
+            printf("<%s>:%i ",__FILE__,__LINE__);                 \
+            throw std::runtime_error(std::string("[MPI] Error")); \
+        }                                                         \
+    }
 
 /******************************* Constant Varaible Definitions *******************************/
 
@@ -76,16 +94,7 @@ Supervisor:    David Goode, PhD
 
 /************ MODEL PARAMETERS ************/
 
-const double MUT_RATE = 0.0002002;//0.0002002
-const double DEATH_RATE = 0.02;
-const double PROLIFERATION_RATE = 0.03;
-
-const unsigned long long MAXIMUM_POPULATION_SIZE =   3000000000; //1000000000;
-const double  PS = (double) MAXIMUM_POPULATION_SIZE;
-
-const unsigned long long DETECTABLE_POPULATION_SIZE =    400000; //1000000000;
 const unsigned int STOP_GROWTH_AFTER_DIAGNOSIS = 10; //[hours]
-
 const bool SAVE_CLONAL_EVOLUTION = false;
 
 /* Main path of the model */
@@ -100,7 +109,6 @@ const bool PRINT = true;
 
 /************ MODEL PARAMETERS Don't modify these ************/
 
-const double DIFF = PROLIFERATION_RATE - DEATH_RATE ;
 const unsigned int dt = 3600;
 
 const bool MULTIPLE_TUMOURS = false;
@@ -287,12 +295,12 @@ namespace core {
 						clone(P_Ben) --> if desired
 
 		*****************************************************/
-        Clone(void):
+        Clone(po::variables_map params):
 			
 				Number_of_Memebers_to_Start_Heterogeneity(27),
 				Generation_ID_Counter(0),
 				clone_extinct(0),
-				Mutation_Rate(MUT_RATE),
+				Mutation_Rate(params["mut"].as<double>()),
 				Number_of_Mutations(0),
 				Clone_Size(0),
 				Initiall_Expasion_Period(0),
@@ -301,7 +309,7 @@ namespace core {
 				In_S_Phase(0),
 				In_G2_Phase(0),
 				In_M_Phase(0),
-				P_Expansion{DEATH_RATE, PROLIFERATION_RATE, 1.0-(DEATH_RATE + PROLIFERATION_RATE)},
+				P_Expansion{params["die"].as<double>(), params["pro"].as<double>(), 1.0-(params["die"].as<double>() + params["pro"].as<double>())},
 				Remaining_Time_in_G1_Phase(0),
 				Remaining_Time_in_S_Phase(0),
 				Remaining_Time_in_G2_Phase(0),
@@ -321,9 +329,9 @@ namespace core {
 		and guaratee a unique scope of the DS.
 
     ********************************************/
-    unique_ptr<Clone> get_Clone_DS()
+    unique_ptr<Clone> get_Clone_DS(po::variables_map params)
     {
-        return unique_ptr<Clone>( new Clone( ) );
+        return unique_ptr<Clone>( new Clone( params ) );
     } // end function
 
     /* DS Clonal_Expansion */
@@ -334,7 +342,7 @@ namespace core {
 		unsigned long long int Population_Size;
 		//unsigned long long int Quiescent_Size;
 		
-		
+        po::variables_map params;
 		double feedback; // This is the output of a proportional control system
 		
 		/**
@@ -351,9 +359,10 @@ namespace core {
 		 vector<unique_ptr<Clone> > *Tumour = new vector<unique_ptr<Clone> >;
 
 		/* CONSTRUCTOR */
-		Clonal_Expansion(void) :
+		Clonal_Expansion(po::variables_map params) :
 				 				
 				 				Population_Size 			( 0   ),
+                                params                      (params),
 			 					feedback 					( 0.0 )
 			 					{ 									}
 		~Clonal_Expansion() 
@@ -367,9 +376,9 @@ namespace core {
 		unique pointer of type Clonal_Expansion. 
 
     ******************************************************/
-	unique_ptr<Clonal_Expansion> get_Clonnal_Expansion_DS()
+	unique_ptr<Clonal_Expansion> get_Clonnal_Expansion_DS(po::variables_map params)
 	{
-		return unique_ptr<Clonal_Expansion>( new Clonal_Expansion() );
+		return unique_ptr<Clonal_Expansion>( new Clonal_Expansion(params) );
 	}// end function
 
 	struct Drug
@@ -680,7 +689,7 @@ namespace core {
 		if(CE)// is the pointer NUL?
 		{	
 		
-			CE -> Tumour -> push_back( get_Clone_DS() );// We update the size that way
+			CE -> Tumour -> push_back( get_Clone_DS(CE->params) );// We update the size that way
 			//CE -> Tumour -> back() -> Progenitor_Ready_to_Reproduce = false;
 			CE -> Tumour -> back() -> Initiall_Expasion_Period = true;
 			CE -> Tumour -> back() -> Clone_Size = 1;
@@ -1252,7 +1261,7 @@ namespace core {
 			CE -> Tumour -> at(Generation_ID) -> Generation_ID_Counter++;
 
 
-			CE -> Tumour -> push_back( get_Clone_DS() );// We update the size that way
+			CE -> Tumour -> push_back( get_Clone_DS(CE->params) );// We update the size that way
 			CE -> Tumour -> back() -> Generation_ID = Clone_Name;
 			
 			CE -> Tumour -> back() -> Initiall_Expasion_Period = false;//true
@@ -1305,8 +1314,13 @@ namespace core {
 	void map_Feedback_orig( unique_ptr<Clonal_Expansion> const & CE )
 	{
 		//cout << "DR : "<< death_rate << " Pop: " << Pop_Size << " CV: " << Current_Population_Size << endl;
+        double pro = CE->params["pro"].as<double>();
+        double die = CE->params["die"].as<double>();
+        double diff = pro - die;
 
-		CE -> feedback =  0.0 + (DIFF - 0.0) * (( (double) CE -> Population_Size - 0.0) / ((double) PS - 0.0));	
+        double pop_size = (double) CE->params["max_size_lim"].as<unsigned long long>();
+
+		CE -> feedback =  0.0 + (diff - 0.0) * (( (double) CE -> Population_Size - 0.0) / ((double) pop_size - 0.0));	
 	}
 
 	/*
@@ -1328,7 +1342,9 @@ namespace core {
 
 		double diff = avg/((double) k * scale);
 
-		CE -> feedback = 0.0 + (diff - 0.0) * (( (double) CE -> Population_Size - 0.0) / ((double) PS - 0.0));	
+        double pop_size = (double) CE->params["max_size_lim"].as<unsigned long long>();
+
+		CE -> feedback = 0.0 + (diff - 0.0) * (( (double) CE -> Population_Size - 0.0) / ((double) pop_size - 0.0));	
 	}//map_feedback
 
 	void Size_Dependent_Penalty(unique_ptr<Clonal_Expansion> const & CE)
@@ -1728,9 +1744,41 @@ namespace core {
   		Pop_Stats.close();
 	}
 
+    /*
+     * Helper function for writing some top-level sim results to a file.
+     */
+    void write_results_file(std::unique_ptr<Clonal_Expansion> const& CE, std::string fpath, double runtime_secs,
+                            unsigned int years, unsigned int hours, unsigned int seconds)
+    {
+        std::ofstream results_fstream;
+        results_fstream.open(fpath);
+
+        std::string header;
+        header = "pop_size\tnum_clones\truntime\telapsed_sim_years\telapsed_sim_hours\telapsed_sim_seconds\n";
+        results_fstream << header;
+
+        int rounded_runtime_secs = (int)runtime_secs;
+        std::ostringstream runtime;
+        int runtime_mins = rounded_runtime_secs/60;
+        runtime_secs -= runtime_mins * 60;
+        int runtime_hrs = runtime_mins/60;
+        runtime_mins = runtime_mins % 60;
+        runtime << boost::format("%1%:%|2$02|:%3$04.1f") % runtime_hrs % runtime_mins % runtime_secs;
+
+        results_fstream << CE->Population_Size << "\t"
+                        << CE->Tumour->size() << "\t"
+                        << runtime.str() << "\t"
+                        << years << "\t"
+                        << hours << "\t"
+                        << seconds << "\n";
+
+        results_fstream.close();
+    }
+
 	unsigned int Abort_Condition(unique_ptr<Clonal_Expansion> const & CE, unsigned int times_to_wait)
 	{
-		if( CE -> Population_Size >  DETECTABLE_POPULATION_SIZE )
+        unsigned long long detectable_size = CE->params["detectable_size_lim"].as<unsigned long long>();
+		if( CE -> Population_Size >  detectable_size )
   			times_to_wait++;
 
   		return times_to_wait;
@@ -1751,7 +1799,7 @@ namespace core {
 		Ouput: Void
 
     ***********************************************************/
-	void compute_Tumour_Evolution(unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID)
+	void compute_Tumour_Evolution(unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, po::variables_map params)
 	{
 		using namespace std;
 
@@ -1769,8 +1817,16 @@ namespace core {
 			File Stream	
 		*/ 
   		ofstream Tumour_Evolution;
-  		string Growth = BasePath + "/Growth/" + "Initial_Growth.txt"; 
-  		string Stats = BasePath + "/Stats/" + "All_Clones_Prior.txt";
+  		string Growth = BasePath
+                        + "/run"
+                        + to_string(params["run_number"].as<int>())
+                        + '/'
+                        + "Initial_Growth.txt"; 
+  		string Stats = BasePath
+                       + "/run"
+                       + to_string(params["run_number"].as<int>())
+                       + '/'
+                       + "All_Clones_Prior.txt"; 
   		// cconsider havinf as iput the file names for this and other files
   		Tumour_Evolution.open (Growth);
 
@@ -2161,7 +2217,7 @@ namespace core {
     								istream_iterator<string>{iss}, 
                 	      			istream_iterator<string>{} 
                     	  		}; // Store the string in two different positions of the vector
-            CTX_Scheme.emplace (tokens[0], tokens[1]);
+            CTX_Scheme.emplace (tokens[0], tokens[2]);
            // cout << tokens[0] << " " << tokens[1] << endl;
 		}//end while
 		Assign_CTX_Input_Values( CTX_Scheme, Therapy );
@@ -2516,7 +2572,7 @@ namespace core {
 
 
 
-	void treatment(unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, string CTX_file)
+	void treatment(unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, string CTX_file, po::variables_map params)
 	{
 	
 		
@@ -2527,8 +2583,13 @@ namespace core {
 		unsigned int years = 0;
 		unsigned int elapsed_hours = 0;
 
-		string Growth = BasePath + "/Growth/" + "Treatment_Growth.txt";
-		string Stats = BasePath + "/Stats/" + "All_Clones_Posterior.txt";
+        string run_dir = BasePath + "/run" + to_string(params["run_number"].as<int>());
+		string Growth = run_dir
+                        + '/'
+                        + "Treatment_Growth.txt";
+		string Stats = run_dir
+                       + '/'
+                       + "All_Clones_Posterior.txt";
 		//unsigned int times_to_wait = 0;
 	
 		//unsigned int elapsed_hours = 0;
@@ -2537,6 +2598,11 @@ namespace core {
 		unique_ptr<Treatment> const Therapy = get_Treatment_DS();
 	
 		Read_CTX(CTX_file, Therapy);
+        fs::path copy_dest = fs::path(BasePath + "/CTX_Scheme_ID_" + to_string(myID) + ".drug");
+        if (!fs::exists(copy_dest))
+        {
+            fs::copy_file(fs::path(CTX_file), copy_dest);
+        }
 
 		//unique_ptr<Drug> const CTX = get_Drug();
 
@@ -2606,7 +2672,7 @@ namespace core {
 
 	void add_Clone_to_DS(unique_ptr<Clonal_Expansion> const & CE, vector<string> tokens)
 	{
-		CE -> Tumour -> push_back( get_Clone_DS() );
+		CE -> Tumour -> push_back( get_Clone_DS(CE->params) );
 		CE -> Tumour -> back() -> Number_of_Memebers_to_Start_Heterogeneity = stoul(tokens[1], nullptr,0);
 		CE -> Tumour -> back() -> Generation_ID_Counter = stoul(tokens[2], nullptr,0);
 		CE -> Tumour -> back() -> clone_extinct = ToBool(tokens[3]);
@@ -2754,28 +2820,96 @@ namespace core {
 	{
 		struct stat st = {0};
 		if (stat(path.c_str(), &st) == -1) 
-    		mkdir(path.c_str(), 0700);
+    		mkdir(path.c_str(), 0775);
 	}
 
-	void create_Subflders(string path)
+    /*
+     * Copy the contents of `source` to `destination`.
+     *
+     * Written by StackOverflow user nijansen. See:
+     *     http://stackoverflow.com/questions/8593608
+     */
+    bool copy_dir( fs::path const & source, fs::path const & destination)
+    {
+        try
+        {
+            // Check whether the function call is valid
+            if( !fs::exists(source) || !fs::is_directory(source))
+            {
+                std::cerr << "Source directory " << source.string()
+                          << " does not exist or is not a directory."
+                          << std::endl;
+                return false;
+            }
+            if(fs::exists(destination))
+            {
+                std::cerr << "Destination directory " << destination.string()
+                          << " already exists." << std::endl;
+                return false;
+            }
+            // Create the destination directory
+            if(!fs::create_directory(destination))
+            {
+                std::cerr << "Unable to create destination directory "
+                          << destination.string() << std::endl;
+                return false;
+            }
+        }
+        catch(fs::filesystem_error const & e)
+        {
+            std::cerr << e.what() << std::endl;
+            return false;
+        }
+
+        // Iterate through the source directory
+        for( fs::directory_iterator file(source); file != fs::directory_iterator(); ++file)
+        {
+            try
+            {
+                fs::path current(file->path());
+                if(fs::is_directory(current))
+                {
+                    // Found directory: Recursion
+                    if( !copy_dir( current, destination / current.filename()))
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    // Found file: Copy
+                    fs::copy_file( current, destination / current.filename());
+                }
+            }
+            catch(fs::filesystem_error const & e)
+            {
+                std:: cerr << e.what() << '\n';
+            }
+        }
+        return true;
+    }
+
+	void create_Subflders(string path, string run_number)
 	{
 		path = path +"/";
-		string Stats = path +"Stats";
-		string Growth = path +"Growth";
+		// string Stats = path +"Stats";
+		// string Growth = path +"Growth";
 		struct stat st = {0};
 
-		if (stat(Stats.c_str(), &st) == -1) 
-    		mkdir(Stats.c_str(), 0700);
+		// if (stat(Stats.c_str(), &st) == -1) 
+            // mkdir(Stats.c_str(), 0700);
 
-    	if (stat(Growth.c_str(), &st) == -1) 
-    		mkdir(Growth.c_str(), 0700);
+        // if (stat(Growth.c_str(), &st) == -1) 
+            // mkdir(Growth.c_str(), 0700);
 
 		if(SAVE_CLONAL_EVOLUTION)
 		{
 			string Clonal_Evolution = path +"Clonal_Evolution";
 			if (stat(Clonal_Evolution.c_str(), &st) == -1) 
-    			mkdir(Clonal_Evolution.c_str(), 0700);
+    			mkdir(Clonal_Evolution.c_str(), 0775);
 		}
+
+        create_Dir(path + "run" + run_number);
 	}//function
 
 	string generate_TimeStamp()
@@ -2794,13 +2928,33 @@ namespace core {
  		return(timeStamp);
 	}
 
-	string create_Store_Directories()
+    string generate_datestamp()
+    {
+		time_t rawtime;
+  		struct tm * timeinfo;
+  		char buffer [80];
+
+  		time (&rawtime);
+  		timeinfo = localtime (&rawtime);
+
+  		strftime (buffer,80,"%F",timeinfo);
+ 		puts (buffer);
+
+ 		string datestamp(buffer);
+ 		return(datestamp);
+    }
+
+	string create_Store_Directories(po::variables_map params)
 	{
 		
 		string BasePath = set_Working_Dir() ;
 		create_Dir(BasePath);
 
-		string SimulationPath = BasePath + generate_TimeStamp();
+		string SimulationPath = BasePath + generate_datestamp();
+        create_Dir(SimulationPath);
+
+        SimulationPath = SimulationPath
+                         + '/' + params["test_group"].as<string>();
 		create_Dir(SimulationPath);
 
  		cout << "Global path @ " << SimulationPath << endl;
@@ -2809,26 +2963,18 @@ namespace core {
 
 	}// funcrtion
 
-	string create_myID_Folder(string SimulationPath, int myID)
-	{
-		string ID_Path = SimulationPath + "/ID_" + to_string(myID);
-		create_Dir(ID_Path);
-		return (ID_Path + "/");
-
-	}
-
 	void send(string const& str, int dest, int tag, MPI_Comm comm)
 	{
 		unsigned len = str.size();
 		vector<char> nonconst_str(str.begin(), str.end());
 		nonconst_str.push_back('\0');
 
-		MPI_Send(&len, 1, MPI_UNSIGNED, dest, tag, comm);
+		MPI_CHECK(MPI_Send(&len, 1, MPI_UNSIGNED, dest, tag, comm));
 		if (len != 0){
-			MPI_Send(&nonconst_str[0], len, MPI_CHAR, dest, tag, comm);
+			MPI_CHECK(MPI_Send(&nonconst_str[0], len, MPI_CHAR, dest, tag, comm));
 			cout << "Message sent " << endl;
 		}
-		//MPI_Send(&PingPongCount, 1, MPI_INT, yourID,0, MPI_COMM_WORLD );
+		//MPI_CHECK(MPI_Send(&PingPongCount, 1, MPI_INT, yourID,0, MPI_COMM_WORLD ));
 	}
 
 	void recv(string& str, int src, int tag, MPI_Comm comm)
@@ -2836,13 +2982,13 @@ namespace core {
 		unsigned len;
 		MPI_Status s;
 		cout << "Sending  " <<endl;
-		MPI_Recv(&len, 1, MPI_UNSIGNED, src, tag, comm, &s);
+		MPI_CHECK(MPI_Recv(&len, 1, MPI_UNSIGNED, src, tag, comm, &s));
 		cout << "RECV len:  " << len << endl;
 
 		if(len != 0)
 		{
 			vector<char> tmp(len);
-			MPI_Recv(tmp.data(), len, MPI_CHAR, src, tag, comm, &s);
+			MPI_CHECK(MPI_Recv(tmp.data(), len, MPI_CHAR, src, tag, comm, &s));
 			str.assign(tmp.begin(), tmp.end());
 		}
 		else
@@ -2852,10 +2998,10 @@ namespace core {
 		cout << "DATA RECV: " << str << endl;
 	}
 
-	string Path_Bcast_From_Master( MPI_Comm comm)
+	string Path_Bcast_From_Master( MPI_Comm comm, po::variables_map params)
 	{
 		char path[1024];
-		string tmp = create_Store_Directories();
+		string tmp = create_Store_Directories(params);
     	strncpy(path, tmp.c_str(), sizeof(path));
     	path[sizeof(path) - 1] = 0;
 
@@ -2878,11 +3024,11 @@ namespace core {
     	return Path;
 	}
 
-	string generate_subfolders(string BasePath, int myID)
+	string generate_subfolders(string BasePath, int myID, string run_number)
 	{
-		BasePath = BasePath +"/ID_" + to_string(myID);
+		BasePath = BasePath +"/ps" + to_string(myID+1);
         create_Dir(BasePath);
-        create_Subflders(BasePath);
+        create_Subflders(BasePath, run_number);
         return BasePath;
 	}
 
@@ -2897,16 +3043,26 @@ namespace core {
     	return str;
 	}
 
-	void Multiple_Tumour_Scheme(unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID)
+	void Multiple_Tumour_Scheme(unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, po::variables_map params)
 	{
-			compute_Tumour_Evolution( CE,  BasePath, myID );
-        	//MPI_Barrier(MPI_COMM_WORLD);
+            clock_t begin = clock(); // start timing simulation
+
+			compute_Tumour_Evolution( CE,  BasePath, myID, params );
+        	//MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
         	Purge_Death_Clones( CE );
-        	//MPI_Barrier(MPI_COMM_WORLD);
-        	treatment( CE, BasePath, myID, DEFAULT_TREATMENT_FILE);
+        	//MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+        	treatment( CE, BasePath, myID, DEFAULT_TREATMENT_FILE, params);
         	cout << "Porcess " << myID << " DONE " <<endl;
-        	//MPI_Barrier(MPI_COMM_WORLD);
-        	MPI_Finalize();
+        	//MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+
+            clock_t end = clock(); // finish timing simulation
+            double cpu_secs = double(end - begin) / CLOCKS_PER_SEC;
+
+            string results_path = BasePath + "/run" + to_string(params["run_number"].as<int>()) + "/results.txt";
+            // TODO replace dummy yrs/hrs/seconds with real values
+            write_results_file(CE, results_path, cpu_secs, 0, 0, 0);
+
+        	MPI_CHECK(MPI_Finalize());
         	//Decide to save alive population
 	}
 
@@ -2925,28 +3081,34 @@ namespace core {
 		Size_Dependent_Penalty(CE);
 	}
 
-	void Tumour_Growth(unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID)
+	void Tumour_Growth(unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, po::variables_map params)
 	{
 
-		compute_Tumour_Evolution( CE,  BasePath, myID );
-        //MPI_Barrier(MPI_COMM_WORLD);
+		compute_Tumour_Evolution( CE,  BasePath, myID, params );
+        //MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
         Purge_Death_Clones( CE );
-        Store_ALL_Population_Stats(CE, BasePath +"/Stats/Alive_Clones_Prior.txt");
+        Store_ALL_Population_Stats(CE, BasePath +"/run" + to_string(params["run_number"].as<int>()) + "/" + "Alive_Clones_Prior.txt");
 
 	}
 
-	void load_Tumour_Population( unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID )
+	void load_Tumour_Population( unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, po::variables_map params )
 	{
-		string temp = ReplaceAll( BasePath, ("ID_"+to_string(myID)), "ID_0") + "/Stats/Alive_Clones_Prior.txt";
-        open_Tumour_Population(temp, CE);
+		string init_path = ReplaceAll( BasePath, ("ps"+to_string(myID+1)), "ps1") + "/run" + to_string(params["run_number"].as<int>());
+        open_Tumour_Population(init_path + "/Alive_Clones_Prior.txt", CE);
+
+		string dup_path = BasePath + "/run" + to_string(params["run_number"].as<int>());
+        fs::copy_file(init_path + "/Alive_Clones_Prior.txt", dup_path + "/Alive_Clones_Prior.txt");
+        fs::copy_file(init_path + "/All_Clones_Prior.txt", dup_path + "/All_Clones_Prior.txt");
+        fs::copy_file(init_path + "/Initial_Growth.txt", dup_path + "/Initial_Growth.txt");
+
         set_Expansion_Struct_Parameters(CE);
 
 	}
 
-	void Drug_Trial( unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID )
+	void Drug_Trial( unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, po::variables_map params)
 	{
 		string drug_file = "./DRUG/CTX_Scheme_ID_" + to_string(myID) + ".drug";
-		treatment( CE, BasePath, myID, drug_file );
+		treatment( CE, BasePath, myID, drug_file, params);
         cout << "Porcess " << myID << " DONE WITH TREATMENT " <<endl;
 
         //cout << "Porcess " << myID << " PRINT CLONE " <<endl;
@@ -2957,44 +3119,78 @@ namespace core {
         //	cout << "Porcess " << myID << " PRINT CLONE " <<endl;
         //	print_Clone_DS(CE -> Tumour -> at(ith_clone));   
         //}   
-        //MPI_Barrier(MPI_COMM_WORLD); 	
+        //MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD)); 	
         
 	}
 
-	void Simulate_Tumour_Evolution( unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID )
+	void Simulate_Tumour_Evolution( unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, po::variables_map params)
 	{
-
 		if(MULTIPLE_TUMOURS)
-        	Multiple_Tumour_Scheme(CE, BasePath, myID);
+        	Multiple_Tumour_Scheme(CE, BasePath, myID, params);
         else
         {
-        	if(myID == 0)
-        		Tumour_Growth( CE, BasePath, myID );
+            clock_t begin = clock(); // start timing simulation
 
-        	MPI_Barrier(MPI_COMM_WORLD);
+        	if(myID == 0)
+            {
+        		Tumour_Growth( CE, BasePath, myID, params );
+
+                // Copy data about the prior population to a special directory
+                string source_dir = BasePath + "/run" + to_string(params["run_number"].as<int>());
+                string prior_dir = create_Store_Directories(params) + "/prior/run" + to_string(params["run_number"].as<int>());
+                create_Dir(create_Store_Directories(params) + "/prior");
+                copy_dir(fs::path(source_dir), fs::path(prior_dir));
+
+                // record results for prior
+                double prior_cpu_secs = double(clock() - begin) / CLOCKS_PER_SEC;
+
+                string prior_results_path = prior_dir + "/results.txt";
+                // TODO replace dummy yrs/hrs/seconds with real values
+                write_results_file(CE, prior_results_path, prior_cpu_secs, 0, 0, 0);
+            }
+
+        	MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
         	
         	if(myID != 0)
-        		load_Tumour_Population( CE, BasePath, myID );
+        		load_Tumour_Population( CE, BasePath, myID, params );
 
-        	MPI_Barrier(MPI_COMM_WORLD);
-        	Drug_Trial( CE, BasePath, myID );
+        	MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+        	Drug_Trial( CE, BasePath, myID, params);
+
+            clock_t end = clock(); // finish timing simulation
+            double cpu_secs = double(end - begin) / CLOCKS_PER_SEC;
+
+            string results_path = BasePath + "/run" + to_string(params["run_number"].as<int>()) + "/results.txt";
+            // TODO replace dummy yrs/hrs/seconds with real values
+            write_results_file(CE, results_path, cpu_secs, 0, 0, 0);
         
-        	MPI_Finalize();
+        	MPI_CHECK(MPI_Finalize());
         }//else
 
 	}//Function
 
-	void Simulate_StandAlone_Tumour_Evolution( unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID )
+	void Simulate_StandAlone_Tumour_Evolution( unique_ptr<Clonal_Expansion> const & CE, string BasePath, int myID, po::variables_map params)
 	{
 		cout << " JUST ONE PROCES " << endl;
+
+        clock_t begin = clock(); // start timing simulation
+
 		// This always should be zero
 		if(myID == 0)
         {
-        	compute_Tumour_Evolution( CE, BasePath, myID );
+        	compute_Tumour_Evolution( CE, BasePath, myID, params );
         	Purge_Death_Clones( CE );
-        	Drug_Trial( CE, BasePath, myID );
+        	Drug_Trial( CE, BasePath, myID, params);
         }
-        MPI_Finalize();
+
+        clock_t end = clock(); // finish timing simulation
+        double cpu_secs = double(end - begin) / CLOCKS_PER_SEC;
+
+        string results_path = BasePath + "/run" + to_string(params["run_number"].as<int>()) + "/results.txt";
+        // TODO replace dummy yrs/hrs/seconds with real values
+        write_results_file(CE, results_path, cpu_secs, 0, 0, 0);
+
+        MPI_CHECK(MPI_Finalize());
 	}//Function
 
 
@@ -3021,36 +3217,36 @@ int main( int argc, char** argv )
   	seed = time (NULL) * getpid();    
   	gsl_rng_set (r_global, seed);  
 
-  	unique_ptr<Clonal_Expansion> const CE = get_Clonnal_Expansion_DS();
-
-	MPI_Init(&argc, &argv);
-	MPI_Comm_rank(MPI_COMM_WORLD,	&myID); 
-	MPI_Comm_size(MPI_COMM_WORLD,	&N_Procs);
-
-
-
-  	if(myID == 0)
-  		print_Clonal_Expansion_DS(CE);
-
     try
     {
+        po::variables_map params = parser::parse_options(argc, argv, cout);
+        unique_ptr<Clonal_Expansion> const CE = get_Clonnal_Expansion_DS(params);
+
+        MPI_CHECK(MPI_Init(&argc, &argv));
+        MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD,	&myID)); 
+        MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD,	&N_Procs));
+
         if(myID == 0)
-        	BasePath = Path_Bcast_From_Master( MPI_COMM_WORLD );
+            print_Clonal_Expansion_DS(CE);
+
+        if(myID == 0)
+        	BasePath = Path_Bcast_From_Master( MPI_COMM_WORLD, params);
         else
         	BasePath = Path_Bcast_From_Salves( myID, MPI_COMM_WORLD);
         	
         /*
 			Wait all processes to enter the follwing section of code
         */
-        MPI_Barrier(MPI_COMM_WORLD);
-        BasePath = generate_subfolders( BasePath,  myID );
-        MPI_Barrier(MPI_COMM_WORLD);// This Barrier may be omitted
+        MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+        BasePath = generate_subfolders( BasePath,  myID, to_string(params["run_number"].as<int>()) );
+        MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));// This Barrier may be omitted
 
         if(N_Procs > 1)
-        	Simulate_Tumour_Evolution( CE, BasePath, myID );
+        	Simulate_Tumour_Evolution( CE, BasePath, myID, params );
         else
-        	Simulate_StandAlone_Tumour_Evolution( CE, BasePath,  myID );
+        	Simulate_StandAlone_Tumour_Evolution( CE, BasePath,  myID, params );
 
+        MPI_CHECK(MPI_Finalize());
         return EXIT_SUCCESS;
 
     }//try code
@@ -3061,9 +3257,5 @@ int main( int argc, char** argv )
     }
     gsl_rng_free (r_global);
 
-    
-    MPI_Finalize();
 	return EXIT_SUCCESS;
-
 }
-
